@@ -1,0 +1,46 @@
+{
+  "name": "morpheus",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "engines": {
+    "node": ">=24.14.1",
+    "npm": ">=10"
+  },
+  "scripts": {
+    "dev": "concurrently --names 'API,WEB' --prefix-colors 'cyan,green' 'npm run dev -w server' 'npm run dev -w client'",
+    "build": "npm run build -w server && npm run build -w client",
+    "test": "npm run test -w server && npm run test -w client",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "type-check": "tsc -p server/tsconfig.json --noEmit && tsc -p client/tsconfig.json --noEmit",
+    "perf:bundle": "node scripts/perf/assert-bundle.mjs",
+    "perf:api": "node scripts/perf/api-latency.mjs",
+    "perf:market": "node scripts/perf/market-data-quality.mjs",
+    "perf:ws": "node scripts/perf/ws-latency.mjs",
+    "perf:web": "lhci autorun --config=./lighthouserc.json",
+    "perf:web:report": "node scripts/perf/web-vitals-report.mjs",
+    "perf:inp": "node scripts/perf/interaction-inp.mjs",
+    "perf": "node scripts/perf/run-all.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "@lhci/cli": "^0.15.1",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "autocannon": "^8.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "eslint-plugin-jsx-a11y": "^6.10.0",
+    "eslint-plugin-react": "^7.37.0",
+    "eslint-plugin-react-hooks": "^5.0.0",
+    "globals": "^16.4.0",
+    "playwright-core": "^1.58.2",
+    "prettier": "^3.4.0",
+    "typescript": "^5.7.0"
+  }
+}

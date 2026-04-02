@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.lighthouseci/
+.DS_Store
+.env
+.env.*
+!.env.example

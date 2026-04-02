@@ -1,0 +1,103 @@
+export interface ApiScenarioBudget {
+  name: string;
+  path: string;
+  p95Ms: number;
+  p99Ms: number;
+  durationMs: number;
+  concurrency: number;
+}
+
+export interface WebSocketPerformanceBudget {
+  sampleCount: number;
+  p95Ms: number;
+  p99Ms: number;
+  jitterP95Ms: number;
+  reconnectFirstTickMs: number;
+}
+
+export interface MarketDataQualityBudget {
+  symbols: string[];
+  symbolCoveragePct: number;
+  positivePriceCoveragePct: number;
+  freshnessP95Ms: number;
+  maxQuoteAgeMs: number;
+  maxSyntheticRatePct: number;
+  warmupAttempts: number;
+  warmupDelayMs: number;
+}
+
+export interface ServerPerformanceBudget {
+  apiScenarios: ApiScenarioBudget[];
+  websocket: WebSocketPerformanceBudget;
+  marketDataQuality: MarketDataQualityBudget;
+}
+
+export const SERVER_PERFORMANCE_BUDGET: ServerPerformanceBudget = {
+  apiScenarios: [
+    {
+      name: 'health',
+      path: '/api/v1/health',
+      p95Ms: 40,
+      p99Ms: 80,
+      durationMs: 4000,
+      concurrency: 10,
+    },
+    {
+      name: 'market-data',
+      path: '/api/v1/market-data?symbols=AAPL,MSFT,NVDA,AMZN,GOOGL',
+      p95Ms: 75,
+      p99Ms: 150,
+      durationMs: 8000,
+      concurrency: 20,
+    },
+    {
+      name: 'order-book',
+      path: '/api/v1/order-book?symbol=QQQ',
+      p95Ms: 75,
+      p99Ms: 150,
+      durationMs: 8000,
+      concurrency: 20,
+    },
+    {
+      name: 'suggestions',
+      path: '/api/v1/suggestions?horizon=short&limit=8',
+      p95Ms: 100,
+      p99Ms: 180,
+      durationMs: 8000,
+      concurrency: 20,
+    },
+    {
+      name: 'guidance',
+      path: '/api/v1/guidance?limit=4',
+      p95Ms: 100,
+      p99Ms: 180,
+      durationMs: 8000,
+      concurrency: 20,
+    },
+    {
+      name: 'backtest',
+      path: '/api/v1/backtest?horizon=long&days=180',
+      p95Ms: 125,
+      p99Ms: 250,
+      durationMs: 8000,
+      concurrency: 20,
+    },
+  ],
+  websocket: {
+    sampleCount: 30,
+    p95Ms: 20,
+    p99Ms: 35,
+    jitterP95Ms: 20,
+    reconnectFirstTickMs: 250,
+  },
+  marketDataQuality: {
+    symbols: ['VOO', 'VTI', 'SCHD', 'QQQ', 'XLK', 'AAPL', 'MSFT', 'NVDA', 'AMZN', 'GOOGL'],
+    symbolCoveragePct: 100,
+    positivePriceCoveragePct: 100,
+    freshnessP95Ms: 15000,
+    maxQuoteAgeMs: 20000,
+    maxSyntheticRatePct: 20,
+    warmupAttempts: 5,
+    warmupDelayMs: 1000,
+  },
+};
