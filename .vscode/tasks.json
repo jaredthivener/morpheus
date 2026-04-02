@@ -11,28 +11,6 @@
 			],
 			"isBackground": true,
 			"group": "build"
-		},
-		{
-			"label": "Run Morpheus Dev",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"dev"
-			],
-			"isBackground": true,
-			"group": "build"
-		},
-		{
-			"label": "Run Morpheus Dev",
-			"type": "shell",
-			"command": "npm",
-			"args": [
-				"run",
-				"dev"
-			],
-			"isBackground": true,
-			"group": "build"
 		}
 	]
 }
