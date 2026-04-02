@@ -1,4 +1,5 @@
 import { alpha, createTheme } from '@mui/material/styles';
+import type { Theme } from '@mui/material/styles';
 import type { ColorMode } from './utils/colorMode';
 
 interface MatrixTokens {
@@ -199,4 +200,17 @@ export const buildAppTheme = (mode: ColorMode) => {
       },
     },
   });
+};
+
+const themeCache: Partial<Record<ColorMode, Theme>> = {};
+
+export const getAppTheme = (mode: ColorMode): Theme => {
+  const cachedTheme = themeCache[mode];
+  if (cachedTheme) {
+    return cachedTheme;
+  }
+
+  const theme = buildAppTheme(mode);
+  themeCache[mode] = theme;
+  return theme;
 };

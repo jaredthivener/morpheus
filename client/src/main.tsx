@@ -7,24 +7,22 @@ import {
   shouldEnableInteractionVitals,
   startInteractionVitalsCollection,
 } from './performance/interactionVitals';
-import { buildAppTheme } from './theme';
+import { getAppTheme } from './theme';
 import type { ColorMode } from './utils/colorMode';
 import { getInitialColorMode, persistColorMode } from './utils/colorMode';
 
 const queryClient = new QueryClient();
 
-const lightTheme = buildAppTheme('light');
-const darkTheme = buildAppTheme('dark');
-
 const RootApp = () => {
   const [colorMode, setColorMode] = useState<ColorMode>(() => getInitialColorMode());
+  const theme = getAppTheme(colorMode);
 
   useEffect(() => {
     persistColorMode(colorMode);
   }, [colorMode]);
 
   return (
-    <ThemeProvider theme={colorMode === 'dark' ? darkTheme : lightTheme}>
+    <ThemeProvider theme={theme}>
       <QueryClientProvider client={queryClient}>
         <App
           colorMode={colorMode}

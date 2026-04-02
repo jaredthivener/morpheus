@@ -1,11 +1,11 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { ThemeProvider } from '@mui/material/styles';
 import { describe, expect, it, vi } from 'vitest';
-import { AppShell } from '../../components/layout/AppShell';
+import { AppShell, DECORATIVE_LAYER_DEFER_MS } from '../../components/layout/AppShell';
 import { buildAppTheme } from '../../theme';
 
 describe('AppShell', () => {
-  it('renders the theme toggle and calls back when clicked', () => {
+  it('renders the theme toggle, calls back when clicked, and defers the decorative backdrop', async () => {
     const handleToggle = vi.fn();
 
     render(
@@ -25,6 +25,14 @@ describe('AppShell', () => {
     expect(screen.getByTestId('matrix-pill-red')).toBeInTheDocument();
     expect(screen.getByTestId('matrix-pill-blue')).toBeInTheDocument();
     expect(screen.getByText('Paper Trading')).toBeInTheDocument();
-    expect(screen.getByTestId('matrix-rain-background')).toBeInTheDocument();
+    expect(screen.queryByTestId('matrix-rain-background')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, DECORATIVE_LAYER_DEFER_MS + 20);
+      });
+    });
+
+    expect(await screen.findByTestId('matrix-rain-background')).toBeInTheDocument();
   });
 });

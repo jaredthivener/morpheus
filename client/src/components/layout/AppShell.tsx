@@ -2,10 +2,16 @@ import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import { Box, Button, Chip, Container, CssBaseline, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import type { PropsWithChildren } from 'react';
+import { lazy, Suspense, useEffect, useState, type PropsWithChildren } from 'react';
 import type { ColorMode } from '../../utils/colorMode';
-import { MatrixRainBackground } from './MatrixRainBackground';
 import { MatrixPillDuo } from './MatrixPillDuo';
+
+const LazyMatrixRainBackground = lazy(async () => {
+  const module = await import('./MatrixRainBackground');
+  return { default: module.MatrixRainBackground };
+});
+
+export const DECORATIVE_LAYER_DEFER_MS = 120;
 
 interface AppShellProps extends PropsWithChildren {
   colorMode: ColorMode;
@@ -13,6 +19,18 @@ interface AppShellProps extends PropsWithChildren {
 }
 
 export const AppShell = ({ children, colorMode, onToggleColorMode }: AppShellProps) => {
+  const [showDecorativeLayer, setShowDecorativeLayer] = useState(false);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setShowDecorativeLayer(true);
+    }, DECORATIVE_LAYER_DEFER_MS);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, []);
+
   return (
     <>
       <CssBaseline />
@@ -46,7 +64,11 @@ export const AppShell = ({ children, colorMode, onToggleColorMode }: AppShellPro
           },
         })}
       >
-        <MatrixRainBackground />
+        {showDecorativeLayer ? (
+          <Suspense fallback={null}>
+            <LazyMatrixRainBackground />
+          </Suspense>
+        ) : null}
         <Container maxWidth="xl" sx={{ position: 'relative', zIndex: 1 }}>
           <Stack spacing={2.5}>
             <Stack

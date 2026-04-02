@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildAppTheme } from '../theme';
+import { buildAppTheme, getAppTheme } from '../theme';
 
 describe('buildAppTheme', () => {
   it('creates a dark phosphor palette with monospace typography', () => {
@@ -19,5 +19,16 @@ describe('buildAppTheme', () => {
     expect(theme.palette.primary.main).toBe('#0f7a3c');
     expect(theme.palette.background.default).toBe('#eef7ee');
     expect(theme.palette.text.primary).toBe('#0a1d12');
+  });
+
+  it('reuses cached theme instances by mode to avoid rebuilding both themes on startup', () => {
+    const firstDarkTheme = getAppTheme('dark');
+    const secondDarkTheme = getAppTheme('dark');
+    const firstLightTheme = getAppTheme('light');
+    const secondLightTheme = getAppTheme('light');
+
+    expect(secondDarkTheme).toBe(firstDarkTheme);
+    expect(secondLightTheme).toBe(firstLightTheme);
+    expect(firstLightTheme).not.toBe(firstDarkTheme);
   });
 });
