@@ -11,7 +11,7 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { fetchOrderBook, submitLimitOrder } from '../../api/client';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { usePortfolioStore } from '../../store/portfolioStore';
@@ -31,7 +31,7 @@ type FlashState = {
   severity: 'success' | 'info' | 'warning' | 'error';
 };
 
-export const TradePanel = ({ quotes, selectedSymbol, onSelectSymbol }: TradePanelProps) => {
+export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: TradePanelProps) => {
   const [shares, setShares] = useState(1);
   const [side, setSide] = useState<TradeSide>('buy');
   const [orderType, setOrderType] = useState<OrderType>('market');
@@ -129,6 +129,7 @@ export const TradePanel = ({ quotes, selectedSymbol, onSelectSymbol }: TradePane
       : selectedQuote?.source === 'cached'
         ? 'warning'
         : 'default';
+  const showLimitPrice = orderType === 'limit';
 
   const submitTrade = async (): Promise<void> => {
     if (!canSubmit) {
@@ -304,16 +305,21 @@ export const TradePanel = ({ quotes, selectedSymbol, onSelectSymbol }: TradePane
           />
         </Stack>
 
-        {orderType === 'limit' ? (
-          <TextField
-            type="number"
-            label="Limit Price"
-            value={limitPrice || selectedPrice}
-            inputProps={{ min: 0.01, step: 0.01 }}
-            onChange={(event) => setLimitPrice(Math.max(0.01, Number(event.target.value)))}
-            size="small"
-          />
-        ) : null}
+        <TextField
+          data-testid="trade-limit-price-field"
+          aria-hidden={!showLimitPrice}
+          disabled={!showLimitPrice}
+          type="number"
+          label="Limit Price"
+          value={limitPrice || selectedPrice}
+          inputProps={{ min: 0.01, step: 0.01 }}
+          onChange={(event) => setLimitPrice(Math.max(0.01, Number(event.target.value)))}
+          size="small"
+          sx={{
+            visibility: showLimitPrice ? 'visible' : 'hidden',
+            pointerEvents: showLimitPrice ? 'auto' : 'none',
+          }}
+        />
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>
           <Stack sx={(theme) => ({ ...insetSurfaceSx(theme), flex: 1, p: 1.25 })}>
@@ -383,4 +389,6 @@ export const TradePanel = ({ quotes, selectedSymbol, onSelectSymbol }: TradePane
       </Stack>
     </DashboardPanel>
   );
-};
+});
+
+TradePanel.displayName = 'TradePanel';
