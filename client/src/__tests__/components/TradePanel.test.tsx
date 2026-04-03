@@ -81,23 +81,22 @@ describe('TradePanel', () => {
     });
   });
 
-  it('keeps the limit price field mounted and only enables it for limit orders', async () => {
+  it('preserves the limit price slot while only rendering the field for limit orders', async () => {
     renderPanel();
 
-    const limitPriceField = await screen.findByTestId('trade-limit-price-field');
-    const limitPriceInput = screen.getByLabelText('Limit Price');
+    const limitPriceSlot = await screen.findByTestId('trade-limit-price-slot');
 
-    expect(limitPriceField).toHaveAttribute('aria-hidden', 'true');
-    expect(limitPriceInput).toBeDisabled();
+    expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByLabelText('Limit Price')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
 
-    expect(limitPriceField).toHaveAttribute('aria-hidden', 'false');
-    expect(limitPriceInput).not.toBeDisabled();
+    expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'false');
+    expect(screen.getByLabelText('Limit Price')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Market' }));
 
-    expect(limitPriceField).toHaveAttribute('aria-hidden', 'true');
-    expect(limitPriceInput).toBeDisabled();
+    expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+    expect(screen.queryByLabelText('Limit Price')).not.toBeInTheDocument();
   });
 });
