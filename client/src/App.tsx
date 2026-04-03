@@ -230,6 +230,7 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   }, [marketQuery.data, setPrice]);
 
   const quotes = liveQuotes.length > 0 ? liveQuotes : marketQuery.data ?? [];
+  const deferredTradeQuotes = useDeferredValue(quotes);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0];
 
   return (
@@ -279,7 +280,7 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
             minHeight={496}
           >
             <LazyTradePanel
-              quotes={quotes}
+              quotes={deferredTradeQuotes}
               selectedSymbol={deferredSelectedSymbol}
               onSelectSymbol={setSelectedSymbol}
             />
