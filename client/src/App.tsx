@@ -52,6 +52,8 @@ const LazyBacktestPanel = lazy(async () => {
 const SECONDARY_PANEL_DELAY_MS = 1400;
 const SECONDARY_PANEL_IDLE_TIMEOUT_MS = 3000;
 const SECONDARY_PANEL_QUIET_WINDOW_MS = 1800;
+// Let the selector acknowledge first, then move the heavier market surface update off the same click.
+const PROFILE_SURFACE_HANDOFF_DELAY_MS = 120;
 
 const DeferredPanelPlaceholder = ({
   title,
@@ -217,7 +219,7 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
     const nextWatchlist = new Set(nextProfile.watchlist.map((entry) => entry.symbol));
     const nextDefaultSymbol = nextProfile.watchlist[0]?.symbol ?? '';
 
-    const frameId = window.requestAnimationFrame(() => {
+    const handoffTimerId = window.setTimeout(() => {
       startTransition(() => {
         setActiveProfileId(selectedProfileId);
         setLiveQuotes((currentQuotes) =>
@@ -232,10 +234,10 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
           nextWatchlist.has(currentSymbol) ? currentSymbol : nextDefaultSymbol,
         );
       });
-    });
+    }, PROFILE_SURFACE_HANDOFF_DELAY_MS);
 
     return () => {
-      window.cancelAnimationFrame(frameId);
+      window.clearTimeout(handoffTimerId);
     };
   }, [activeProfileId, selectedProfileId]);
 

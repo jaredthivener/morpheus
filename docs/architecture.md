@@ -70,7 +70,7 @@ morpheus/
 
 - `client/src/App.tsx` resolves the active investor profile from local storage.
 - The selected profile updates the onboarding lens selector immediately so the click acknowledges within the same interaction frame.
-- The watchlist-driving market surface advances to the newly selected profile on the next animation frame inside a React transition so profile changes do not block first paint of the interaction.
+- The watchlist-driving market surface advances through a short deferred handoff so profile changes do not block first paint of the interaction.
 - The watchlist drives the market-data query key, the visible market table, and the default symbol routed into the paper ticket.
 
 ### 2. Quote Read Path
