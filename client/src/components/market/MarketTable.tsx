@@ -213,7 +213,7 @@ const MarketTableRow = memo(({
   );
 });
 
-export const MarketTable = ({
+export const MarketTable = memo(({
   quotes,
   selectedSymbol,
   onSelectSymbol,
@@ -303,4 +303,6 @@ export const MarketTable = ({
         </Box>
       </DashboardPanel>
     );
-  };
+  });
+
+MarketTable.displayName = 'MarketTable';

@@ -1,5 +1,6 @@
 import { Box, Chip, Grid, Paper, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { memo } from 'react';
 import type { Quote } from '../../types/market';
 import { insetSurfaceSx, panelSurfaceSx } from '../common/DashboardPanel';
 import { formatQuoteFreshness } from '../../utils/marketSession';
@@ -21,7 +22,7 @@ interface AccountOverviewProps {
 
 const formatCurrency = (value: number): string => currencyFormatter.format(value);
 
-export const AccountOverview = ({
+export const AccountOverview = memo(({
   cash,
   totalValue,
   unrealizedPnL,
@@ -215,4 +216,6 @@ export const AccountOverview = ({
       </Grid>
     </Box>
   );
-};
+});
+
+AccountOverview.displayName = 'AccountOverview';

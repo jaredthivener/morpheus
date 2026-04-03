@@ -2,8 +2,10 @@ import {
   lazy,
   startTransition,
   Suspense,
+  useCallback,
   useDeferredValue,
   useEffect,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
@@ -27,6 +29,7 @@ import {
   getInvestorProfile,
   INVESTOR_PROFILES,
   persistInvestorProfileId,
+  type InvestorProfileId,
 } from './utils/investorProfile';
 
 const LazySuggestionsPanel = lazy(async () => {
@@ -158,10 +161,11 @@ interface AppProps {
 }
 
 export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
-  const [selectedProfileId, setSelectedProfileId] = useState(() => getInitialInvestorProfileId());
-  const [activeProfileId, setActiveProfileId] = useState(selectedProfileId);
-  const selectedProfile = getInvestorProfile(selectedProfileId);
+  const [activeProfileId, setActiveProfileId] = useState<InvestorProfileId>(() =>
+    getInitialInvestorProfileId(),
+  );
   const activeProfile = getInvestorProfile(activeProfileId);
+  const pendingProfileHandoffTimerRef = useRef<number | null>(null);
   const watchlist = activeProfile.watchlist.map((entry) => entry.symbol);
   const watchlistKey = watchlist.join(',');
   const defaultWatchlistSymbol = watchlist[0] ?? '';
@@ -207,39 +211,16 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   });
 
   useEffect(() => {
-    persistInvestorProfileId(selectedProfileId);
-  }, [selectedProfileId]);
+    persistInvestorProfileId(activeProfileId);
+  }, [activeProfileId]);
 
   useEffect(() => {
-    if (activeProfileId === selectedProfileId) {
-      return;
-    }
-
-    const nextProfile = getInvestorProfile(selectedProfileId);
-    const nextWatchlist = new Set(nextProfile.watchlist.map((entry) => entry.symbol));
-    const nextDefaultSymbol = nextProfile.watchlist[0]?.symbol ?? '';
-
-    const handoffTimerId = window.setTimeout(() => {
-      startTransition(() => {
-        setActiveProfileId(selectedProfileId);
-        setLiveQuotes((currentQuotes) =>
-          currentQuotes.filter((quote) => nextWatchlist.has(quote.symbol)),
-        );
-        setSessionHistory((currentHistory) =>
-          Object.fromEntries(
-            Object.entries(currentHistory).filter(([symbol]) => nextWatchlist.has(symbol)),
-          ),
-        );
-        setSelectedSymbol((currentSymbol) =>
-          nextWatchlist.has(currentSymbol) ? currentSymbol : nextDefaultSymbol,
-        );
-      });
-    }, PROFILE_SURFACE_HANDOFF_DELAY_MS);
-
     return () => {
-      window.clearTimeout(handoffTimerId);
+      if (pendingProfileHandoffTimerRef.current !== null) {
+        window.clearTimeout(pendingProfileHandoffTimerRef.current);
+      }
     };
-  }, [activeProfileId, selectedProfileId]);
+  }, []);
 
   useEffect(() => {
     if (!isSelectedSymbolInWatchlist) {
@@ -271,6 +252,38 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const quotes = liveQuotes.length > 0 ? liveQuotes : marketQuery.data ?? [];
   const deferredTradeQuotes = useDeferredValue(quotes);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0];
+  const handleSelectProfile = useCallback((profileId: InvestorProfileId) => {
+    if (profileId === activeProfileId) {
+      return;
+    }
+
+    const nextProfile = getInvestorProfile(profileId);
+    const nextWatchlist = new Set(nextProfile.watchlist.map((entry) => entry.symbol));
+    const nextDefaultSymbol = nextProfile.watchlist[0]?.symbol ?? '';
+
+    if (pendingProfileHandoffTimerRef.current !== null) {
+      window.clearTimeout(pendingProfileHandoffTimerRef.current);
+    }
+
+    pendingProfileHandoffTimerRef.current = window.setTimeout(() => {
+      pendingProfileHandoffTimerRef.current = null;
+
+      startTransition(() => {
+        setActiveProfileId(profileId);
+        setLiveQuotes((currentQuotes) =>
+          currentQuotes.filter((quote) => nextWatchlist.has(quote.symbol)),
+        );
+        setSessionHistory((currentHistory) =>
+          Object.fromEntries(
+            Object.entries(currentHistory).filter(([symbol]) => nextWatchlist.has(symbol)),
+          ),
+        );
+        setSelectedSymbol((currentSymbol) =>
+          nextWatchlist.has(currentSymbol) ? currentSymbol : nextDefaultSymbol,
+        );
+      });
+    }, PROFILE_SURFACE_HANDOFF_DELAY_MS);
+  }, [activeProfileId]);
 
   return (
     <AppShell colorMode={colorMode} onToggleColorMode={onToggleColorMode}>
@@ -297,8 +310,8 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
         <Grid size={{ xs: 12, lg: 4 }}>
           <InvestorProfilePanel
             profiles={INVESTOR_PROFILES}
-            selectedProfileId={selectedProfile.id}
-            onSelectProfile={setSelectedProfileId}
+            selectedProfileId={activeProfile.id}
+            onSelectProfile={handleSelectProfile}
           />
         </Grid>
         <Grid size={{ xs: 12, lg: 7 }}>

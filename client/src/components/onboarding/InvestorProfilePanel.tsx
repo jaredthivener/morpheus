@@ -1,6 +1,6 @@
 import { Box, ButtonBase, Chip, Grid, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { memo } from 'react';
+import { memo, useEffect, useState } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import type { InvestorProfile, InvestorProfileId } from '../../utils/investorProfile';
 
@@ -15,8 +15,19 @@ export const InvestorProfilePanel = memo(({
   selectedProfileId,
   onSelectProfile,
 }: InvestorProfilePanelProps) => {
+  const [displayedProfileId, setDisplayedProfileId] = useState(selectedProfileId);
+
+  useEffect(() => {
+    setDisplayedProfileId(selectedProfileId);
+  }, [selectedProfileId]);
+
+  const handleSelectProfile = (profileId: InvestorProfileId) => {
+    setDisplayedProfileId(profileId);
+    onSelectProfile(profileId);
+  };
+
   const selectedProfile =
-    profiles.find((profile) => profile.id === selectedProfileId) ?? profiles[0];
+    profiles.find((profile) => profile.id === displayedProfileId) ?? profiles[0];
 
   return (
     <DashboardPanel
@@ -28,12 +39,12 @@ export const InvestorProfilePanel = memo(({
       <Stack spacing={1.25}>
         <Grid container spacing={1.1}>
           {profiles.map((profile) => {
-            const isSelected = profile.id === selectedProfileId;
+            const isSelected = profile.id === displayedProfileId;
 
             return (
               <Grid key={profile.id} size={{ xs: 12, sm: 4 }}>
                 <ButtonBase
-                  onClick={() => onSelectProfile(profile.id)}
+                  onClick={() => handleSelectProfile(profile.id)}
                   aria-label={`Switch to ${profile.label}`}
                   sx={{ display: 'block', width: '100%', borderRadius: '18px', textAlign: 'left' }}
                 >

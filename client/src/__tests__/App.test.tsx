@@ -91,22 +91,40 @@ vi.mock('../components/market/MarketTable', () => ({
   ),
 }));
 
-vi.mock('../components/onboarding/InvestorProfilePanel', () => ({
-  InvestorProfilePanel: ({
-    selectedProfileId,
-    onSelectProfile,
-  }: {
-    selectedProfileId: string;
-    onSelectProfile: (profileId: 'growth-explorer') => void;
-  }) => (
-    <div>
-      <div>{`investor profile ${selectedProfileId}`}</div>
-      <button type="button" onClick={() => onSelectProfile('growth-explorer')}>
-        switch profile
-      </button>
-    </div>
-  ),
-}));
+vi.mock('../components/onboarding/InvestorProfilePanel', async () => {
+  const React = await import('react');
+
+  return {
+    InvestorProfilePanel: ({
+      selectedProfileId,
+      onSelectProfile,
+    }: {
+      selectedProfileId: string;
+      onSelectProfile: (profileId: 'growth-explorer') => void;
+    }) => {
+      const [displayedProfileId, setDisplayedProfileId] = React.useState(selectedProfileId);
+
+      React.useEffect(() => {
+        setDisplayedProfileId(selectedProfileId);
+      }, [selectedProfileId]);
+
+      return (
+        <div>
+          <div>{`investor profile ${displayedProfileId}`}</div>
+          <button
+            type="button"
+            onClick={() => {
+              setDisplayedProfileId('growth-explorer');
+              onSelectProfile('growth-explorer');
+            }}
+          >
+            switch profile
+          </button>
+        </div>
+      );
+    },
+  };
+});
 
 vi.mock('../components/suggestions/SuggestionsPanel', () => ({
   SuggestionsPanel: () => <div>suggestions panel loaded</div>,
