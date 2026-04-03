@@ -51,6 +51,7 @@ const LazyBacktestPanel = lazy(async () => {
 
 const SECONDARY_PANEL_DELAY_MS = 1400;
 const SECONDARY_PANEL_IDLE_TIMEOUT_MS = 3000;
+const SECONDARY_PANEL_QUIET_WINDOW_MS = 1800;
 
 const DeferredPanelPlaceholder = ({
   title,
@@ -156,12 +157,14 @@ interface AppProps {
 
 export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const [selectedProfileId, setSelectedProfileId] = useState(() => getInitialInvestorProfileId());
+  const [activeProfileId, setActiveProfileId] = useState(selectedProfileId);
   const selectedProfile = getInvestorProfile(selectedProfileId);
-  const watchlist = selectedProfile.watchlist.map((entry) => entry.symbol);
+  const activeProfile = getInvestorProfile(activeProfileId);
+  const watchlist = activeProfile.watchlist.map((entry) => entry.symbol);
   const watchlistKey = watchlist.join(',');
   const defaultWatchlistSymbol = watchlist[0] ?? '';
   const symbolTypes = Object.fromEntries(
-    selectedProfile.watchlist.map((entry) => [entry.symbol, entry.assetType]),
+    activeProfile.watchlist.map((entry) => [entry.symbol, entry.assetType]),
   );
   const [selectedSymbol, setSelectedSymbol] = useState<string>(defaultWatchlistSymbol);
   const isSelectedSymbolInWatchlist = watchlist.includes(selectedSymbol);
@@ -171,6 +174,7 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const showDeferredPanels = useDeferredReveal({
     delayMs: SECONDARY_PANEL_DELAY_MS,
     idleTimeoutMs: SECONDARY_PANEL_IDLE_TIMEOUT_MS,
+    quietWindowMs: SECONDARY_PANEL_QUIET_WINDOW_MS,
   });
 
   useMarketSocket({
@@ -203,6 +207,37 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   useEffect(() => {
     persistInvestorProfileId(selectedProfileId);
   }, [selectedProfileId]);
+
+  useEffect(() => {
+    if (activeProfileId === selectedProfileId) {
+      return;
+    }
+
+    const nextProfile = getInvestorProfile(selectedProfileId);
+    const nextWatchlist = new Set(nextProfile.watchlist.map((entry) => entry.symbol));
+    const nextDefaultSymbol = nextProfile.watchlist[0]?.symbol ?? '';
+
+    const frameId = window.requestAnimationFrame(() => {
+      startTransition(() => {
+        setActiveProfileId(selectedProfileId);
+        setLiveQuotes((currentQuotes) =>
+          currentQuotes.filter((quote) => nextWatchlist.has(quote.symbol)),
+        );
+        setSessionHistory((currentHistory) =>
+          Object.fromEntries(
+            Object.entries(currentHistory).filter(([symbol]) => nextWatchlist.has(symbol)),
+          ),
+        );
+        setSelectedSymbol((currentSymbol) =>
+          nextWatchlist.has(currentSymbol) ? currentSymbol : nextDefaultSymbol,
+        );
+      });
+    });
+
+    return () => {
+      window.cancelAnimationFrame(frameId);
+    };
+  }, [activeProfileId, selectedProfileId]);
 
   useEffect(() => {
     if (!isSelectedSymbolInWatchlist) {
@@ -252,8 +287,8 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
             selectedSymbol={selectedQuote?.symbol ?? selectedSymbol}
             onSelectSymbol={setSelectedSymbol}
             priceHistory={sessionHistory}
-            watchlistLabel={selectedProfile.label}
-            watchlistDescription={selectedProfile.summary}
+            watchlistLabel={activeProfile.label}
+            watchlistDescription={activeProfile.summary}
             symbolTypes={symbolTypes}
           />
         </Grid>

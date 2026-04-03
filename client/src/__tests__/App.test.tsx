@@ -1,23 +1,42 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import type { PropsWithChildren } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockedQuoteData = vi.hoisted(() => [
-  {
-    symbol: 'VOO',
-    price: 510.42,
-    changePercent: 0.84,
-    volume: 1_240_000,
-    source: 'live' as const,
-    asOf: Date.now(),
-  },
-]);
+const ETF_STARTER_WATCHLIST_KEY = vi.hoisted(
+  () => 'VOO,VTI,SCHD,XLV,XLP,XLU,MSFT,JNJ,WMT,COST',
+);
+const GROWTH_EXPLORER_WATCHLIST_KEY = vi.hoisted(
+  () => 'QQQ,SOXX,SMH,IWM,NVDA,AMZN,META,TSLA,AMD,GOOGL',
+);
+
+const mockedQuoteDataByWatchlist = vi.hoisted(() => ({
+  [ETF_STARTER_WATCHLIST_KEY]: [
+    {
+      symbol: 'VOO',
+      price: 510.42,
+      changePercent: 0.84,
+      volume: 1_240_000,
+      source: 'live' as const,
+      asOf: Date.now(),
+    },
+  ],
+  [GROWTH_EXPLORER_WATCHLIST_KEY]: [
+    {
+      symbol: 'QQQ',
+      price: 487.18,
+      changePercent: 1.12,
+      volume: 2_840_000,
+      source: 'live' as const,
+      asOf: Date.now(),
+    },
+  ],
+}));
 
 const mockedSetPrice = vi.hoisted(() => vi.fn());
 
 vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => ({
-    data: mockedQuoteData,
+  useQuery: ({ queryKey }: { queryKey: [string, string] }) => ({
+    data: mockedQuoteDataByWatchlist[queryKey[1] as keyof typeof mockedQuoteDataByWatchlist] ?? [],
   }),
 }));
 
@@ -55,11 +74,38 @@ vi.mock('../components/layout/AccountOverview', () => ({
 }));
 
 vi.mock('../components/market/MarketTable', () => ({
-  MarketTable: () => <div>market table</div>,
+  MarketTable: ({
+    quotes,
+    selectedSymbol,
+    watchlistLabel,
+  }: {
+    quotes: Array<{ symbol: string }>;
+    selectedSymbol: string;
+    watchlistLabel: string;
+  }) => (
+    <div>
+      <div>{`market table ${watchlistLabel}`}</div>
+      <div>{`market rows ${quotes.map((quote) => quote.symbol).join(',')}`}</div>
+      <div>{`market selected ${selectedSymbol}`}</div>
+    </div>
+  ),
 }));
 
 vi.mock('../components/onboarding/InvestorProfilePanel', () => ({
-  InvestorProfilePanel: () => <div>investor profile</div>,
+  InvestorProfilePanel: ({
+    selectedProfileId,
+    onSelectProfile,
+  }: {
+    selectedProfileId: string;
+    onSelectProfile: (profileId: 'growth-explorer') => void;
+  }) => (
+    <div>
+      <div>{`investor profile ${selectedProfileId}`}</div>
+      <button type="button" onClick={() => onSelectProfile('growth-explorer')}>
+        switch profile
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock('../components/suggestions/SuggestionsPanel', () => ({
@@ -129,8 +175,10 @@ describe('App', () => {
 
     expect(screen.getByTestId('app-shell')).toBeInTheDocument();
     expect(screen.getByText('account overview')).toBeInTheDocument();
-    expect(screen.getByText('market table')).toBeInTheDocument();
-    expect(screen.getByText('investor profile')).toBeInTheDocument();
+    expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO')).toBeInTheDocument();
+    expect(screen.getByText('market selected VOO')).toBeInTheDocument();
+    expect(screen.getByText('investor profile etf-starter')).toBeInTheDocument();
     expect(screen.getByText('AI Guidance for Everyday Investors')).toBeInTheDocument();
     expect(screen.getByText('Paper Order Ticket')).toBeInTheDocument();
     expect(screen.queryByText('suggestions panel loaded')).not.toBeInTheDocument();
@@ -139,6 +187,14 @@ describe('App', () => {
     await act(async () => {
       await new Promise((resolve) => {
         window.setTimeout(resolve, 1450);
+      });
+    });
+
+    expect(idleCallback).toBeUndefined();
+
+    await act(async () => {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 400);
       });
     });
 
@@ -153,5 +209,26 @@ describe('App', () => {
     expect(await screen.findByText('portfolio summary loaded')).toBeInTheDocument();
     expect(await screen.findByText('backtest panel loaded')).toBeInTheDocument();
     expect(mockedSetPrice).toHaveBeenCalledWith('VOO', 510.42);
+  });
+
+  it('updates the selected profile immediately while the market surface catches up on the deferred render', async () => {
+    render(<App colorMode="dark" onToggleColorMode={vi.fn()} />);
+
+    expect(screen.getByText('investor profile etf-starter')).toBeInTheDocument();
+    expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO')).toBeInTheDocument();
+    expect(screen.getByText('market selected VOO')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'switch profile' }));
+
+    expect(screen.getByText('investor profile growth-explorer')).toBeInTheDocument();
+    expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO')).toBeInTheDocument();
+    expect(screen.getByText('market selected VOO')).toBeInTheDocument();
+
+    expect(await screen.findByText('market table Growth Explorer')).toBeInTheDocument();
+    expect(screen.getByText('market rows QQQ')).toBeInTheDocument();
+    expect(screen.getByText('market selected QQQ')).toBeInTheDocument();
+    expect(screen.queryByText('market rows VOO')).not.toBeInTheDocument();
   });
 });

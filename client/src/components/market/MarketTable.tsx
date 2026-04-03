@@ -223,6 +223,7 @@ export const MarketTable = ({
     const showSparklines = useDeferredReveal({
     delayMs: 900,
       idleTimeoutMs: 1200,
+      quietWindowMs: 1400,
     });
 
     const visibleRows = quotes.length > 0 ? quotes : Array.from({ length: 10 }, (_, idx) => ({
