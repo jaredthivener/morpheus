@@ -1,5 +1,6 @@
 import { Box, ButtonBase, Chip, Grid, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
+import { memo } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import type { InvestorProfile, InvestorProfileId } from '../../utils/investorProfile';
 
@@ -9,7 +10,7 @@ interface InvestorProfilePanelProps {
   onSelectProfile: (profileId: InvestorProfileId) => void;
 }
 
-export const InvestorProfilePanel = ({
+export const InvestorProfilePanel = memo(({
   profiles,
   selectedProfileId,
   onSelectProfile,
@@ -158,4 +159,4 @@ export const InvestorProfilePanel = ({
       </Stack>
     </DashboardPanel>
   );
-};
+});

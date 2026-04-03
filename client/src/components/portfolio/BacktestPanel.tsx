@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { Box, Chip, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { memo } from 'react';
 import { useState, type KeyboardEvent, type MouseEvent } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { fetchBacktest } from '../../api/client';
@@ -482,7 +483,7 @@ const ComparisonChart = ({
   );
 };
 
-export const BacktestPanel = () => {
+export const BacktestPanel = memo(() => {
   const theme = useTheme();
   const shortQuery = useQuery({
     queryKey: ['backtest', 'short', 180],
@@ -641,4 +642,4 @@ export const BacktestPanel = () => {
       )}
     </DashboardPanel>
   );
-};
+});

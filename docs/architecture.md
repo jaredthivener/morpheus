@@ -129,8 +129,16 @@ Hard gates:
 - `npm run perf:inp` runs a real browser interaction flow and hard-fails if INP exceeds 200 ms.
 - `npm run perf` is the release gate and must stay green.
 
+Pull request enforcement:
+
+- `.github/workflows/quality-and-performance.yml` runs required GitHub checks for `Quality Checks`, `Performance Gate`, `Dependency Audit`, and `CodeQL Analysis` on PR open, update, reopen, and ready-for-review events, plus pushes to `main`.
+- Protected branch rules must require those checks on the latest PR commit before merge so performance budgets and security analysis are enforced before code lands.
+- The performance workflow resolves a Chromium-family executable on the runner and exports `PLAYWRIGHT_CHROMIUM_EXECUTABLE` so the browser-based INP gate runs consistently in CI.
+
 Implementation details:
 
+- Noncritical lower-dashboard surfaces such as guidance, the paper ticket, portfolio exposure, backtest analysis, and decorative matrix effects are deferred until after the primary market surface becomes interactive or the browser reaches an idle window.
+- Deferred surfaces reserve their layout space with lightweight placeholders so responsiveness improves without introducing layout shift.
 - The app lazily loads the `web-vitals/attribution` collector only when the explicit perf query flag is present.
 - Scripted INP runs against stable user flows already present in the UI: theme toggle, investor profile change, watchlist selection, and ticket interaction.
 - Navigation-mode metrics like TBT and Max Potential FID remain useful diagnostics, but they are no longer the only enforcement path for interaction latency.
@@ -143,7 +151,8 @@ Use this checklist before considering a non-trivial change done:
 2. If performance expectations changed, update `scripts/perf/performance-budgets.json`, the mirrored TypeScript budget, and the relevant tests.
 3. If beginner-investor guidance changed, realign PM/PO and financial-expert acceptance criteria before shipping behavior changes.
 4. If a new route or websocket behavior was added, add or update a perf gate in `scripts/perf/`.
-5. If a new surface can affect rendering, latency, or bundle size, run the full perf gate before closing the work.
+5. If PR enforcement changed, update the workflow contract and required-check list in this document.
+6. If a new surface can affect rendering, latency, or bundle size, run the full perf gate before closing the work.
 
 ## Definition Of Done
 
@@ -153,3 +162,4 @@ A change is not done unless all of the following are true:
 - Tests covering the changed behavior exist and pass.
 - `npm run lint`, `npm run type-check`, and the relevant test suites pass.
 - `npm run perf` passes without budget regressions unless the user explicitly approves a revised budget.
+- For pull requests, the required GitHub checks `Quality Checks`, `Performance Gate`, `Dependency Audit`, and `CodeQL Analysis` pass on the latest commit before merge.

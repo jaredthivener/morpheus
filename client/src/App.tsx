@@ -1,16 +1,23 @@
-import { startTransition, useEffect, useState } from 'react';
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useDeferredValue,
+  useEffect,
+  useState,
+  type ReactNode,
+} from 'react';
+import { ErrorBoundary, type FallbackProps } from 'react-error-boundary';
 import { useQuery } from '@tanstack/react-query';
-import { Grid } from '@mui/material';
+import { Button, Grid, Skeleton, Stack, Typography } from '@mui/material';
 import { fetchMarketData } from './api/client';
+import { DashboardPanel } from './components/common/DashboardPanel';
 import { AccountOverview } from './components/layout/AccountOverview';
 import { AppShell } from './components/layout/AppShell';
 import { MarketTable } from './components/market/MarketTable';
 import { InvestorProfilePanel } from './components/onboarding/InvestorProfilePanel';
-import { BacktestPanel } from './components/portfolio/BacktestPanel';
-import { PortfolioSummary } from './components/portfolio/PortfolioSummary';
-import { SuggestionsPanel } from './components/suggestions/SuggestionsPanel';
-import { TradePanel } from './components/trading/TradePanel';
 import { useMarketSocket } from './hooks/useMarketSocket';
+import { useDeferredReveal } from './hooks/useDeferredReveal';
 import type { Quote } from './types/market';
 import { usePortfolioStore } from './store/portfolioStore';
 import { appendPriceHistory, applyTicksToQuotes } from './utils/marketSession';
@@ -21,6 +28,125 @@ import {
   INVESTOR_PROFILES,
   persistInvestorProfileId,
 } from './utils/investorProfile';
+
+const LazySuggestionsPanel = lazy(async () => {
+  const module = await import('./components/suggestions/SuggestionsPanel');
+  return { default: module.SuggestionsPanel };
+});
+
+const LazyTradePanel = lazy(async () => {
+  const module = await import('./components/trading/TradePanel');
+  return { default: module.TradePanel };
+});
+
+const LazyPortfolioSummary = lazy(async () => {
+  const module = await import('./components/portfolio/PortfolioSummary');
+  return { default: module.PortfolioSummary };
+});
+
+const LazyBacktestPanel = lazy(async () => {
+  const module = await import('./components/portfolio/BacktestPanel');
+  return { default: module.BacktestPanel };
+});
+
+const SECONDARY_PANEL_IDLE_TIMEOUT_MS = 3000;
+
+const DeferredPanelPlaceholder = ({
+  title,
+  subtitle,
+  minHeight,
+}: {
+  title: string;
+  subtitle: string;
+  minHeight: number;
+}) => {
+  return (
+    <DashboardPanel title={title} subtitle={subtitle} minHeight={minHeight}>
+      <Stack spacing={1.1}>
+        <Skeleton variant="rounded" height={18} width="38%" animation={false} />
+        <Skeleton variant="rounded" height={96} animation={false} />
+        <Skeleton variant="rounded" height={96} animation={false} />
+      </Stack>
+    </DashboardPanel>
+  );
+};
+
+const getDeferredPanelErrorMessage = (error: unknown) => {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return 'A deferred dashboard section failed to load.';
+};
+
+const DeferredPanelErrorFallback = ({
+  error,
+  title,
+  minHeight,
+}: FallbackProps & {
+  title: string;
+  minHeight: number;
+}) => {
+  return (
+    <DashboardPanel
+      title={title}
+      subtitle="This panel could not be loaded. The rest of the dashboard remains available."
+      minHeight={minHeight}
+    >
+      <Stack spacing={1.2} role="alert">
+        <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.5 }}>
+          {getDeferredPanelErrorMessage(error)}
+        </Typography>
+        <Button
+          variant="outlined"
+          color="secondary"
+          onClick={() => {
+            window.location.reload();
+          }}
+          sx={{ alignSelf: 'flex-start' }}
+        >
+          Reload Dashboard
+        </Button>
+      </Stack>
+    </DashboardPanel>
+  );
+};
+
+const DeferredPanel = ({
+  isReady,
+  title,
+  subtitle,
+  minHeight,
+  children,
+}: {
+  isReady: boolean;
+  title: string;
+  subtitle: string;
+  minHeight: number;
+  children: ReactNode;
+}) => {
+  const placeholder = (
+    <DeferredPanelPlaceholder title={title} subtitle={subtitle} minHeight={minHeight} />
+  );
+
+  if (!isReady) {
+    return placeholder;
+  }
+
+  return (
+    <ErrorBoundary
+      fallbackRender={(fallbackProps) => (
+        <DeferredPanelErrorFallback
+          {...fallbackProps}
+          title={title}
+          minHeight={minHeight}
+        />
+      )}
+    >
+      <Suspense fallback={placeholder}>{children}</Suspense>
+    </ErrorBoundary>
+  );
+};
 
 interface AppProps {
   colorMode: ColorMode;
@@ -40,6 +166,10 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const isSelectedSymbolInWatchlist = watchlist.includes(selectedSymbol);
   const [liveQuotes, setLiveQuotes] = useState<Quote[]>([]);
   const [sessionHistory, setSessionHistory] = useState<Record<string, number[]>>({});
+  const deferredSelectedSymbol = useDeferredValue(selectedSymbol);
+  const showDeferredPanels = useDeferredReveal({
+    idleTimeoutMs: SECONDARY_PANEL_IDLE_TIMEOUT_MS,
+  });
 
   useMarketSocket({
     symbols: watchlist,
@@ -132,20 +262,48 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
           />
         </Grid>
         <Grid size={{ xs: 12, lg: 7 }}>
-          <SuggestionsPanel />
+          <DeferredPanel
+            isReady={showDeferredPanels}
+            title="AI Guidance for Everyday Investors"
+            subtitle="Secondary guidance loads after the core market surface settles."
+            minHeight={352}
+          >
+            <LazySuggestionsPanel />
+          </DeferredPanel>
         </Grid>
         <Grid size={{ xs: 12, lg: 5 }}>
-          <TradePanel
-            quotes={quotes}
-            selectedSymbol={selectedQuote?.symbol ?? selectedSymbol}
-            onSelectSymbol={setSelectedSymbol}
-          />
+          <DeferredPanel
+            isReady={showDeferredPanels}
+            title="Paper Order Ticket"
+            subtitle="Execution tooling loads after the primary watchlist becomes interactive."
+            minHeight={496}
+          >
+            <LazyTradePanel
+              quotes={quotes}
+              selectedSymbol={deferredSelectedSymbol}
+              onSelectSymbol={setSelectedSymbol}
+            />
+          </DeferredPanel>
         </Grid>
         <Grid size={{ xs: 12 }}>
-          <PortfolioSummary />
+          <DeferredPanel
+            isReady={showDeferredPanels}
+            title="Portfolio Exposure"
+            subtitle="Position analytics load once the critical dashboard surface is idle."
+            minHeight={316}
+          >
+            <LazyPortfolioSummary />
+          </DeferredPanel>
         </Grid>
         <Grid size={{ xs: 12 }}>
-          <BacktestPanel />
+          <DeferredPanel
+            isReady={showDeferredPanels}
+            title="Historical Comparison"
+            subtitle="Backtest analysis loads after the core research tools are interactive."
+            minHeight={420}
+          >
+            <LazyBacktestPanel />
+          </DeferredPanel>
         </Grid>
       </Grid>
     </AppShell>

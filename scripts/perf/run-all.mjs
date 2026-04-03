@@ -1,4 +1,22 @@
 import { spawn } from 'node:child_process';
+import { createServer } from 'node:net';
+
+const serverPort = process.env.PERF_SERVER_PORT ?? '3000';
+const previewPort = process.env.PERF_PREVIEW_PORT ?? '4173';
+const perfApiBaseUrl = process.env.PERF_API_BASE_URL ?? `http://localhost:${serverPort}`;
+const perfWsUrl = process.env.PERF_WS_URL ?? `ws://localhost:${serverPort}/ws`;
+const perfPreviewBaseUrl = `http://localhost:${previewPort}`;
+const perfAppUrl = process.env.PERF_APP_URL ?? `${perfPreviewBaseUrl}/?dtn-perf=interaction`;
+const perfBuildEnv = {
+  ...process.env,
+  VITE_API_BASE_URL: process.env.VITE_API_BASE_URL ?? perfApiBaseUrl,
+};
+const perfCommandEnv = {
+  ...process.env,
+  PERF_API_BASE_URL: perfApiBaseUrl,
+  PERF_WS_URL: perfWsUrl,
+  PERF_APP_URL: perfAppUrl,
+};
 
 const run = (command, args, options = {}) =>
   new Promise((resolve, reject) => {
@@ -34,6 +52,35 @@ const waitFor = async (url, maxAttempts = 60, delayMs = 500) => {
   throw new Error(`Timeout waiting for ${url}`);
 };
 
+const ensurePortAvailable = (port, label) =>
+  new Promise((resolve, reject) => {
+    const probe = createServer();
+
+    probe.once('error', (error) => {
+      if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'EADDRINUSE') {
+        reject(
+          new Error(
+            `${label} port ${port} is already in use. Stop the conflicting process or set a different performance port override.`,
+          ),
+        );
+        return;
+      }
+
+      reject(error);
+    });
+
+    probe.listen(Number(port), '0.0.0.0', () => {
+      probe.close((error) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve();
+      });
+    });
+  });
+
 const start = (command, args, options = {}) => {
   return spawn(command, args, {
     stdio: 'inherit',
@@ -52,13 +99,16 @@ let serverProcess;
 let previewProcess;
 
 try {
-  await run('npm', ['run', 'build']);
+  await ensurePortAvailable(serverPort, 'API performance');
+  await ensurePortAvailable(previewPort, 'Preview performance');
+
+  await run('npm', ['run', 'build'], { env: perfBuildEnv });
 
   serverProcess = start('node', ['dist/index.js'], {
     cwd: 'server',
     env: {
       ...process.env,
-      PORT: '3000',
+      PORT: serverPort,
       PERF_MODE: '1',
     },
   });
@@ -69,21 +119,22 @@ try {
     '--host',
     '0.0.0.0',
     '--port',
-    '4173',
+    previewPort,
+    '--strictPort',
   ], {
     cwd: 'client',
   });
 
-  await waitFor('http://localhost:3000/api/v1/health');
-  await waitFor('http://localhost:4173');
+  await waitFor(`${perfApiBaseUrl}/api/v1/health`);
+  await waitFor(perfPreviewBaseUrl);
 
-  await run('npm', ['run', 'perf:api']);
-  await run('npm', ['run', 'perf:market']);
-  await run('npm', ['run', 'perf:ws']);
-  await run('npm', ['run', 'perf:bundle']);
-  await run('npm', ['run', 'perf:web']);
-  await run('npm', ['run', 'perf:web:report']);
-  await run('npm', ['run', 'perf:inp']);
+  await run('npm', ['run', 'perf:api'], { env: perfCommandEnv });
+  await run('npm', ['run', 'perf:market'], { env: perfCommandEnv });
+  await run('npm', ['run', 'perf:ws'], { env: perfCommandEnv });
+  await run('npm', ['run', 'perf:bundle'], { env: perfCommandEnv });
+  await run('npm', ['run', 'perf:web'], { env: perfCommandEnv });
+  await run('npm', ['run', 'perf:web:report'], { env: perfCommandEnv });
+  await run('npm', ['run', 'perf:inp'], { env: perfCommandEnv });
 
   process.stdout.write('All performance checks passed.\n');
 } finally {

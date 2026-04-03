@@ -50,6 +50,31 @@ describe('marketDataService', () => {
     expect(quoteMock).toHaveBeenCalledWith(['AAPL']);
   });
 
+  it('uses the observation time when Yahoo returns a stale market timestamp', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-04-02T14:30:00.000Z'));
+
+    try {
+      quoteMock.mockResolvedValue([
+        {
+          symbol: 'AAPL',
+          regularMarketPrice: 199.31,
+          regularMarketChangePercent: 0.42,
+          regularMarketVolume: 10_000,
+          regularMarketTime: new Date('2026-04-01T16:00:00.000Z'),
+        },
+      ]);
+
+      const service = new MarketDataService();
+      const [quote] = await service.refreshQuotes(['AAPL']);
+
+      expect(quote?.source).toBe('live');
+      expect(quote?.asOf).toBe(Date.now());
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('serves the cached live quote synchronously while a background refresh is pending', async () => {
     quoteMock.mockResolvedValue([
       {

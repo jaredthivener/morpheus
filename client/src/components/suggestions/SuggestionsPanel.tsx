@@ -1,11 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Box, Chip, Grid, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { memo } from 'react';
 import { fetchGuidance } from '../../api/client';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import type { GuidanceBundle, GuidanceItem } from '../../types/market';
 
-export const SuggestionsPanel = () => {
+export const SuggestionsPanel = memo(() => {
   const theme = useTheme();
   const guidanceQuery = useQuery({
     queryKey: ['guidance', 4],
@@ -214,5 +215,5 @@ export const SuggestionsPanel = () => {
       </Stack>
     </DashboardPanel>
   );
-};
+});
 

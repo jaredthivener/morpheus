@@ -1,0 +1,157 @@
+import { act, render, screen } from '@testing-library/react';
+import type { PropsWithChildren } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+const mockedQuoteData = vi.hoisted(() => [
+  {
+    symbol: 'VOO',
+    price: 510.42,
+    changePercent: 0.84,
+    volume: 1_240_000,
+    source: 'live' as const,
+    asOf: Date.now(),
+  },
+]);
+
+const mockedSetPrice = vi.hoisted(() => vi.fn());
+
+vi.mock('@tanstack/react-query', () => ({
+  useQuery: () => ({
+    data: mockedQuoteData,
+  }),
+}));
+
+vi.mock('../hooks/useMarketSocket', () => ({
+  useMarketSocket: vi.fn(),
+}));
+
+vi.mock('../store/portfolioStore', () => ({
+  usePortfolioStore: (
+    selector: (state: {
+      setPrice: typeof mockedSetPrice;
+      cash: number;
+      totalValue: () => number;
+      unrealizedPnL: () => number;
+      holdings: Record<string, never>;
+      prices: Record<string, never>;
+    }) => unknown,
+  ) =>
+    selector({
+      setPrice: mockedSetPrice,
+      cash: 82_500,
+      totalValue: () => 105_420,
+      unrealizedPnL: () => 5_420,
+      holdings: {},
+      prices: {},
+    }),
+}));
+
+vi.mock('../components/layout/AppShell', () => ({
+  AppShell: ({ children }: PropsWithChildren) => <div data-testid="app-shell">{children}</div>,
+}));
+
+vi.mock('../components/layout/AccountOverview', () => ({
+  AccountOverview: () => <div>account overview</div>,
+}));
+
+vi.mock('../components/market/MarketTable', () => ({
+  MarketTable: () => <div>market table</div>,
+}));
+
+vi.mock('../components/onboarding/InvestorProfilePanel', () => ({
+  InvestorProfilePanel: () => <div>investor profile</div>,
+}));
+
+vi.mock('../components/suggestions/SuggestionsPanel', () => ({
+  SuggestionsPanel: () => <div>suggestions panel loaded</div>,
+}));
+
+vi.mock('../components/trading/TradePanel', () => ({
+  TradePanel: ({ selectedSymbol }: { selectedSymbol: string }) => (
+    <div>{`trade panel loaded ${selectedSymbol}`}</div>
+  ),
+}));
+
+vi.mock('../components/portfolio/PortfolioSummary', () => ({
+  PortfolioSummary: () => <div>portfolio summary loaded</div>,
+}));
+
+vi.mock('../components/portfolio/BacktestPanel', () => ({
+  BacktestPanel: () => <div>backtest panel loaded</div>,
+}));
+
+import { App } from '../App';
+
+type IdleCallback = Parameters<NonNullable<typeof window.requestIdleCallback>>[0];
+
+describe('App', () => {
+  const originalRequestIdleCallback = window.requestIdleCallback;
+  const originalCancelIdleCallback = window.cancelIdleCallback;
+
+  beforeEach(() => {
+    mockedSetPrice.mockClear();
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'requestIdleCallback', {
+      configurable: true,
+      writable: true,
+      value: originalRequestIdleCallback,
+    });
+
+    Object.defineProperty(window, 'cancelIdleCallback', {
+      configurable: true,
+      writable: true,
+      value: originalCancelIdleCallback,
+    });
+  });
+
+  it('renders deferred placeholders first and reveals the lazy panels when the browser becomes idle', async () => {
+    let idleCallback: IdleCallback | undefined;
+
+    Object.defineProperty(window, 'requestIdleCallback', {
+      configurable: true,
+      writable: true,
+      value: ((callback: IdleCallback) => {
+        idleCallback = callback;
+        return 1;
+      }) as typeof window.requestIdleCallback,
+    });
+
+    Object.defineProperty(window, 'cancelIdleCallback', {
+      configurable: true,
+      writable: true,
+      value: vi.fn() as typeof window.cancelIdleCallback,
+    });
+
+    render(<App colorMode="dark" onToggleColorMode={vi.fn()} />);
+
+    expect(screen.getByTestId('app-shell')).toBeInTheDocument();
+    expect(screen.getByText('account overview')).toBeInTheDocument();
+    expect(screen.getByText('market table')).toBeInTheDocument();
+    expect(screen.getByText('investor profile')).toBeInTheDocument();
+    expect(screen.getByText('AI Guidance for Everyday Investors')).toBeInTheDocument();
+    expect(screen.getByText('Paper Order Ticket')).toBeInTheDocument();
+    expect(screen.queryByText('suggestions panel loaded')).not.toBeInTheDocument();
+    expect(screen.queryByText('trade panel loaded VOO')).not.toBeInTheDocument();
+
+    await act(async () => {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 0);
+      });
+    });
+
+    expect(idleCallback).toBeDefined();
+
+    await act(async () => {
+      idleCallback?.({ didTimeout: false, timeRemaining: () => 40 } as IdleDeadline);
+    });
+
+    expect(await screen.findByText('suggestions panel loaded')).toBeInTheDocument();
+    expect(await screen.findByText('trade panel loaded VOO')).toBeInTheDocument();
+    expect(await screen.findByText('portfolio summary loaded')).toBeInTheDocument();
+    expect(await screen.findByText('backtest panel loaded')).toBeInTheDocument();
+    expect(mockedSetPrice).toHaveBeenCalledWith('VOO', 510.42);
+  });
+});

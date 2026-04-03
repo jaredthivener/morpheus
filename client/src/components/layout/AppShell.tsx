@@ -2,8 +2,9 @@ import DarkModeRounded from '@mui/icons-material/DarkModeRounded';
 import LightModeRounded from '@mui/icons-material/LightModeRounded';
 import { Box, Button, Chip, Container, CssBaseline, Stack, Typography } from '@mui/material';
 import { alpha } from '@mui/material/styles';
-import { lazy, Suspense, useEffect, useState, type PropsWithChildren } from 'react';
+import { lazy, Suspense, type PropsWithChildren } from 'react';
 import type { ColorMode } from '../../utils/colorMode';
+import { useDeferredReveal } from '../../hooks/useDeferredReveal';
 import { MatrixPillDuo } from './MatrixPillDuo';
 
 const LazyMatrixRainBackground = lazy(async () => {
@@ -19,17 +20,10 @@ interface AppShellProps extends PropsWithChildren {
 }
 
 export const AppShell = ({ children, colorMode, onToggleColorMode }: AppShellProps) => {
-  const [showDecorativeLayer, setShowDecorativeLayer] = useState(false);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      setShowDecorativeLayer(true);
-    }, DECORATIVE_LAYER_DEFER_MS);
-
-    return () => {
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
+  const showDecorativeLayer = useDeferredReveal({
+    delayMs: DECORATIVE_LAYER_DEFER_MS,
+    idleTimeoutMs: 1200,
+  });
 
   return (
     <>

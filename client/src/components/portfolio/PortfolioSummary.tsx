@@ -1,9 +1,10 @@
 import { Box, Chip, Grid, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { memo } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { usePortfolioStore } from '../../store/portfolioStore';
 
-export const PortfolioSummary = () => {
+export const PortfolioSummary = memo(() => {
   const theme = useTheme();
   const cash = usePortfolioStore((state) => state.cash);
   const holdings = usePortfolioStore((state) => state.holdings);
@@ -129,4 +130,4 @@ export const PortfolioSummary = () => {
       </Box>
     </DashboardPanel>
   );
-};
+});

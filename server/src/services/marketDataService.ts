@@ -73,6 +73,19 @@ const seededBasePrice = (symbol: string): number => {
   return 40 + (sum % 300);
 };
 
+const resolveQuoteAsOf = (regularMarketTime?: Date): number => {
+  const observedAt = Date.now();
+
+  if (!(regularMarketTime instanceof Date)) {
+    return observedAt;
+  }
+
+  const upstreamAsOf = regularMarketTime.getTime();
+  const isFreshUpstreamTimestamp = upstreamAsOf <= observedAt && observedAt - upstreamAsOf <= LIVE_QUOTE_TTL_MS;
+
+  return isFreshUpstreamTimestamp ? upstreamAsOf : observedAt;
+};
+
 const quoteToTick = (quote: Quote, timestamp = Date.now()): Tick => ({
   symbol: quote.symbol,
   price: Number(quote.price.toFixed(2)),
@@ -176,10 +189,7 @@ export class MarketDataService {
           changePercent: rawQuote.regularMarketChangePercent ?? 0,
           volume: rawQuote.regularMarketVolume ?? 0,
           source: 'live',
-          asOf:
-            rawQuote.regularMarketTime instanceof Date
-              ? rawQuote.regularMarketTime.getTime()
-              : Date.now(),
+          asOf: resolveQuoteAsOf(rawQuote.regularMarketTime),
         });
       }
 
