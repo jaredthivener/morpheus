@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, startTransition, useDeferredValue, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
@@ -15,7 +15,8 @@ const queryClient = new QueryClient();
 
 const RootApp = () => {
   const [colorMode, setColorMode] = useState<ColorMode>(() => getInitialColorMode());
-  const theme = getAppTheme(colorMode);
+  const deferredColorMode = useDeferredValue(colorMode);
+  const theme = getAppTheme(deferredColorMode);
 
   useEffect(() => {
     persistColorMode(colorMode);
@@ -25,9 +26,11 @@ const RootApp = () => {
     <ThemeProvider theme={theme}>
       <QueryClientProvider client={queryClient}>
         <App
-          colorMode={colorMode}
+          colorMode={deferredColorMode}
           onToggleColorMode={() => {
-            setColorMode((currentMode) => (currentMode === 'dark' ? 'light' : 'dark'));
+            startTransition(() => {
+              setColorMode((currentMode) => (currentMode === 'dark' ? 'light' : 'dark'));
+            });
           }}
         />
       </QueryClientProvider>
