@@ -4,6 +4,12 @@ import type { Quote } from '../../types/market';
 import { insetSurfaceSx, panelSurfaceSx } from '../common/DashboardPanel';
 import { formatQuoteFreshness } from '../../utils/marketSession';
 
+const currencyFormatter = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  maximumFractionDigits: 2,
+});
+
 interface AccountOverviewProps {
   cash: number;
   totalValue: number;
@@ -13,12 +19,7 @@ interface AccountOverviewProps {
   selectedQuote?: Quote;
 }
 
-const formatCurrency = (value: number): string =>
-  new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 2,
-  }).format(value);
+const formatCurrency = (value: number): string => currencyFormatter.format(value);
 
 export const AccountOverview = ({
   cash,

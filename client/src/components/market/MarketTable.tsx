@@ -18,6 +18,8 @@ import type { AssetType, Quote } from '../../types/market';
 import type { SessionHistory } from '../../utils/marketSession';
 import { formatQuoteFreshness } from '../../utils/marketSession';
 
+const volumeFormatter = new Intl.NumberFormat('en-US');
+
 interface MarketTableProps {
   quotes: Quote[];
   selectedSymbol: string;
@@ -188,7 +190,7 @@ const MarketTableRow = memo(({
           sx={{ color: 'text.secondary', display: { xs: 'none', md: 'table-cell' } }}
           align="right"
         >
-          {quote.price === 0 ? '--' : quote.volume.toLocaleString()}
+          {quote.price === 0 ? '--' : volumeFormatter.format(quote.volume)}
         </TableCell>
         <TableCell align="right">
           {quote.price === 0 ? (
