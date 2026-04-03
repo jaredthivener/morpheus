@@ -221,7 +221,7 @@ export const MarketTable = ({
   symbolTypes = {},
 }: MarketTableProps) => {
     const showSparklines = useDeferredReveal({
-      delayMs: 120,
+    delayMs: 900,
       idleTimeoutMs: 1200,
     });
 

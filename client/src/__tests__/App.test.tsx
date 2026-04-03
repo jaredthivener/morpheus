@@ -138,7 +138,7 @@ describe('App', () => {
 
     await act(async () => {
       await new Promise((resolve) => {
-        window.setTimeout(resolve, 0);
+        window.setTimeout(resolve, 1450);
       });
     });
 

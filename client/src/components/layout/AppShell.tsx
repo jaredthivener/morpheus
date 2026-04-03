@@ -12,7 +12,7 @@ const LazyMatrixRainBackground = lazy(async () => {
   return { default: module.MatrixRainBackground };
 });
 
-export const DECORATIVE_LAYER_DEFER_MS = 120;
+export const DECORATIVE_LAYER_DEFER_MS = 900;
 
 interface AppShellProps extends PropsWithChildren {
   colorMode: ColorMode;
@@ -22,7 +22,7 @@ interface AppShellProps extends PropsWithChildren {
 export const AppShell = ({ children, colorMode, onToggleColorMode }: AppShellProps) => {
   const showDecorativeLayer = useDeferredReveal({
     delayMs: DECORATIVE_LAYER_DEFER_MS,
-    idleTimeoutMs: 1200,
+    idleTimeoutMs: 1600,
   });
 
   return (

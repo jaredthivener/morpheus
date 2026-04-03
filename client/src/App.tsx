@@ -49,6 +49,7 @@ const LazyBacktestPanel = lazy(async () => {
   return { default: module.BacktestPanel };
 });
 
+const SECONDARY_PANEL_DELAY_MS = 1400;
 const SECONDARY_PANEL_IDLE_TIMEOUT_MS = 3000;
 
 const DeferredPanelPlaceholder = ({
@@ -168,6 +169,7 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const [sessionHistory, setSessionHistory] = useState<Record<string, number[]>>({});
   const deferredSelectedSymbol = useDeferredValue(selectedSymbol);
   const showDeferredPanels = useDeferredReveal({
+    delayMs: SECONDARY_PANEL_DELAY_MS,
     idleTimeoutMs: SECONDARY_PANEL_IDLE_TIMEOUT_MS,
   });
 
