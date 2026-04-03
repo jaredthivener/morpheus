@@ -10,9 +10,10 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import type { KeyboardEvent } from 'react';
+import { memo, type KeyboardEvent } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { SessionSparkline } from '../common/SessionSparkline';
+import { useDeferredReveal } from '../../hooks/useDeferredReveal';
 import type { AssetType, Quote } from '../../types/market';
 import type { SessionHistory } from '../../utils/marketSession';
 import { formatQuoteFreshness } from '../../utils/marketSession';
@@ -26,6 +27,26 @@ interface MarketTableProps {
   watchlistDescription?: string;
   symbolTypes?: Partial<Record<string, AssetType>>;
 }
+
+const SparklinePlaceholder = () => {
+  return (
+    <Box
+      component="span"
+      sx={(theme) => ({
+        display: 'inline-flex',
+        alignItems: 'center',
+        width: 104,
+        height: 34,
+        borderRadius: 999,
+        px: 0.5,
+        backgroundColor: alpha(
+          theme.palette.text.primary,
+          theme.palette.mode === 'dark' ? 0.08 : 0.05,
+        ),
+      })}
+    />
+  );
+};
 
 const sourceColor = (source: Quote['source']): 'success' | 'warning' | 'default' => {
   if (source === 'live') {
@@ -42,53 +63,55 @@ interface MarketTableRowProps {
   isSelected: boolean;
   assetType: AssetType;
   values: number[];
+  showSparkline: boolean;
   onSelectSymbol: (symbol: string) => void;
 }
 
-const MarketTableRow = ({ quote, isSelected, assetType, values, onSelectSymbol }: MarketTableRowProps) => {
-  const trendTone =
-    quote.price === 0 ? 'neutral' : quote.changePercent >= 0 ? 'positive' : 'negative';
+const MarketTableRow = memo(
+  ({ quote, isSelected, assetType, values, showSparkline, onSelectSymbol }: MarketTableRowProps) => {
+    const trendTone =
+      quote.price === 0 ? 'neutral' : quote.changePercent >= 0 ? 'positive' : 'negative';
 
-  const selectQuote = () => {
-    if (quote.price <= 0) {
-      return;
-    }
+    const selectQuote = () => {
+      if (quote.price <= 0) {
+        return;
+      }
 
-    onSelectSymbol(quote.symbol);
-  };
+      onSelectSymbol(quote.symbol);
+    };
 
-  const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
-    if (event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      selectQuote();
-    }
-  };
+    const handleRowKeyDown = (event: KeyboardEvent<HTMLTableRowElement>) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        selectQuote();
+      }
+    };
 
-  return (
-    <TableRow
-      hover={quote.price > 0}
-      tabIndex={quote.price > 0 ? 0 : -1}
-      aria-selected={isSelected}
-      onClick={selectQuote}
-      onKeyDown={handleRowKeyDown}
-      sx={(theme) => ({
-        cursor: quote.price > 0 ? 'pointer' : 'default',
-        transition: 'background-color 160ms ease',
-        backgroundColor: isSelected
-          ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.07)
-          : 'transparent',
-        '& td': {
-          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.9)}`,
-        },
-        '&:hover': quote.price > 0
-          ? {
-              backgroundColor: isSelected
-                ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.1)
-                : alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.06 : 0.025),
-            }
-          : undefined,
-      })}
-    >
+    return (
+      <TableRow
+        hover={quote.price > 0}
+        tabIndex={quote.price > 0 ? 0 : -1}
+        aria-selected={isSelected}
+        onClick={selectQuote}
+        onKeyDown={handleRowKeyDown}
+        sx={(theme) => ({
+          cursor: quote.price > 0 ? 'pointer' : 'default',
+          transition: 'background-color 160ms ease',
+          backgroundColor: isSelected
+            ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.07)
+            : 'transparent',
+          '& td': {
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.9)}`,
+          },
+          '&:hover': quote.price > 0
+            ? {
+                backgroundColor: isSelected
+                  ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.1)
+                  : alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.06 : 0.025),
+              }
+            : undefined,
+        })}
+      >
       <TableCell>
         <Stack direction="row" spacing={1.25} alignItems="center">
           <Box
@@ -140,8 +163,12 @@ const MarketTableRow = ({ quote, isSelected, assetType, values, onSelectSymbol }
         {quote.price === 0 ? (
           '--'
         ) : (
-          <Stack alignItems="flex-end" spacing={0.5}>
-            <SessionSparkline values={values} tone={trendTone} />
+            <Stack alignItems="flex-end" spacing={0.5}>
+              {showSparkline ? (
+                <SessionSparkline values={values} tone={trendTone} />
+              ) : (
+                <SparklinePlaceholder />
+              )}
             <Typography
               variant="caption"
               sx={{ color: quote.changePercent >= 0 ? 'success.main' : 'error.main', fontWeight: 700 }}
@@ -174,9 +201,10 @@ const MarketTableRow = ({ quote, isSelected, assetType, values, onSelectSymbol }
           </Stack>
         )}
       </TableCell>
-    </TableRow>
-  );
-};
+      </TableRow>
+    );
+  },
+);
 
 export const MarketTable = ({
   quotes,
@@ -187,6 +215,11 @@ export const MarketTable = ({
   watchlistDescription,
   symbolTypes = {},
 }: MarketTableProps) => {
+  const showSparklines = useDeferredReveal({
+    delayMs: 120,
+    idleTimeoutMs: 1200,
+  });
+
   const visibleRows = quotes.length > 0 ? quotes : Array.from({ length: 10 }, (_, idx) => ({
     symbol: `--${idx + 1}`,
     price: 0,
@@ -252,6 +285,7 @@ export const MarketTable = ({
                   isSelected={quote.symbol === selectedSymbol && quote.price > 0}
                   assetType={assetType}
                   values={values}
+                  showSparkline={showSparklines}
                   onSelectSymbol={onSelectSymbol}
                 />
               );
