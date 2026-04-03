@@ -307,17 +307,20 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
         </Stack>
 
         <Box data-testid="trade-limit-price-slot" aria-hidden={!showLimitPrice} sx={{ minHeight: 40 }}>
-          {showLimitPrice ? (
-            <TextField
-              type="number"
-              label="Limit Price"
-              value={limitPrice || selectedPrice}
-              inputProps={{ min: 0.01, step: 0.01 }}
-              onChange={(event) => setLimitPrice(Math.max(0.01, Number(event.target.value)))}
-              size="small"
-              fullWidth
-            />
-          ) : null}
+          <TextField
+            type="number"
+            label="Limit Price"
+            value={limitPrice || selectedPrice}
+            inputProps={{ min: 0.01, step: 0.01 }}
+            onChange={(event) => setLimitPrice(Math.max(0.01, Number(event.target.value)))}
+            size="small"
+            fullWidth
+            disabled={!showLimitPrice}
+            sx={{
+              visibility: showLimitPrice ? 'visible' : 'hidden',
+              pointerEvents: showLimitPrice ? 'auto' : 'none',
+            }}
+          />
         </Box>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>

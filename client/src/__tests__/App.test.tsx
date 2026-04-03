@@ -231,4 +231,47 @@ describe('App', () => {
     expect(screen.getByText('market selected QQQ')).toBeInTheDocument();
     expect(screen.queryByText('market rows VOO')).not.toBeInTheDocument();
   });
+
+  it('keeps the revealed lower panels responsive when switching profiles after idle reveal', async () => {
+    let idleCallback: IdleCallback | undefined;
+
+    Object.defineProperty(window, 'requestIdleCallback', {
+      configurable: true,
+      writable: true,
+      value: ((callback: IdleCallback) => {
+        idleCallback = callback;
+        return 1;
+      }) as typeof window.requestIdleCallback,
+    });
+
+    Object.defineProperty(window, 'cancelIdleCallback', {
+      configurable: true,
+      writable: true,
+      value: vi.fn() as typeof window.cancelIdleCallback,
+    });
+
+    render(<App colorMode="dark" onToggleColorMode={vi.fn()} />);
+
+    await act(async () => {
+      await new Promise((resolve) => {
+        window.setTimeout(resolve, 1850);
+      });
+    });
+
+    await act(async () => {
+      idleCallback?.({ didTimeout: false, timeRemaining: () => 40 } as IdleDeadline);
+    });
+
+    expect(await screen.findByText('trade panel loaded VOO')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'switch profile' }));
+
+    expect(screen.getByText('investor profile growth-explorer')).toBeInTheDocument();
+    expect(screen.getByText('trade panel loaded VOO')).toBeInTheDocument();
+
+    expect(await screen.findByText('market table Growth Explorer')).toBeInTheDocument();
+    expect(await screen.findByText('trade panel loaded QQQ')).toBeInTheDocument();
+    expect(screen.getByText('market rows QQQ')).toBeInTheDocument();
+    expect(screen.getByText('market selected QQQ')).toBeInTheDocument();
+  });
 });

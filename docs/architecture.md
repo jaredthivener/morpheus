@@ -135,6 +135,7 @@ Pull request enforcement:
 - `.github/workflows/quality-and-performance.yml` runs required GitHub checks for `Quality Checks`, `Performance Gate`, `Dependency Audit`, and `CodeQL Analysis` on PR open, update, reopen, and ready-for-review events, plus pushes to `main`.
 - Protected branch rules must require those checks on the latest PR commit before merge so performance budgets and security analysis are enforced before code lands.
 - The performance workflow resolves a Chromium-family executable on the runner and exports `PLAYWRIGHT_CHROMIUM_EXECUTABLE` so the browser-based INP gate runs consistently in CI.
+- Lighthouse collection reads its target URL from environment configuration, so isolated local perf runs can point at the preview instance created by `scripts/perf/run-all.mjs` instead of accidentally auditing another local server.
 
 Implementation details:
 

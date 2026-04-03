@@ -5,8 +5,14 @@ const serverPort = process.env.PERF_SERVER_PORT ?? '3000';
 const previewPort = process.env.PERF_PREVIEW_PORT ?? '4173';
 const perfApiBaseUrl = process.env.PERF_API_BASE_URL ?? `http://localhost:${serverPort}`;
 const perfWsUrl = process.env.PERF_WS_URL ?? `ws://localhost:${serverPort}/ws`;
-const perfPreviewBaseUrl = `http://localhost:${previewPort}`;
-const perfAppUrl = process.env.PERF_APP_URL ?? `${perfPreviewBaseUrl}/?dtn-perf=interaction`;
+const defaultPerfAppUrl = `http://localhost:${previewPort}/?dtn-perf=interaction`;
+const perfAppUrl = process.env.PERF_APP_URL ?? defaultPerfAppUrl;
+const perfPreviewBaseUrl = (() => {
+  const previewUrl = new URL(perfAppUrl);
+  previewUrl.search = '';
+  previewUrl.hash = '';
+  return previewUrl.toString();
+})();
 const perfBuildEnv = {
   ...process.env,
   VITE_API_BASE_URL: process.env.VITE_API_BASE_URL ?? perfApiBaseUrl,

@@ -33,7 +33,7 @@
     "perf:api": "node scripts/perf/api-latency.mjs",
     "perf:market": "node scripts/perf/market-data-quality.mjs",
     "perf:ws": "node scripts/perf/ws-latency.mjs",
-    "perf:web": "lhci autorun --config=./lighthouserc.json",
+    "perf:web": "node scripts/perf/run-lighthouse.mjs",
     "perf:web:report": "node scripts/perf/web-vitals-report.mjs",
     "perf:inp": "node scripts/perf/interaction-inp.mjs",
     "perf": "node scripts/perf/run-all.mjs"
