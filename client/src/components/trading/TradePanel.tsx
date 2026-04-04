@@ -2,7 +2,6 @@ import {
   Alert,
   Box,
   Button,
-  ButtonBase,
   Chip,
   MenuItem,
   Stack,
@@ -58,9 +57,10 @@ const OrderTypeToggleGroup = memo(({
         const isSelected = displayedOrderType === option.value;
 
         return (
-          <ButtonBase
+          <Box
+            component="button"
+            type="button"
             key={option.value}
-            disableRipple
             aria-pressed={isSelected}
             onClick={() => {
               if (option.value === displayedOrderType) {
@@ -70,36 +70,36 @@ const OrderTypeToggleGroup = memo(({
               setDisplayedOrderType(option.value);
               onChange(option.value);
             }}
-            sx={{ flex: 1, borderRadius: '14px', textAlign: 'center' }}
+            sx={(theme) => ({
+              flex: 1,
+              minHeight: 40,
+              px: 1.25,
+              py: 0.9,
+              borderRadius: '14px',
+              border: `1px solid ${
+                isSelected
+                  ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.52 : 0.28)
+                  : alpha(theme.palette.divider, 0.9)
+              }`,
+              backgroundColor: isSelected
+                ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.08)
+                : alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.52 : 0.76),
+              color: isSelected ? theme.palette.primary.main : theme.palette.text.secondary,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: theme.typography.button.fontSize,
+              fontWeight: 700,
+              letterSpacing: '0.03em',
+              textTransform: 'uppercase',
+              cursor: 'pointer',
+              transition: 'none',
+              appearance: 'none',
+              WebkitAppearance: 'none',
+            })}
           >
-            <Box
-              sx={(theme) => ({
-                ...insetSurfaceSx(theme),
-                width: '100%',
-                minHeight: 40,
-                px: 1.25,
-                py: 0.9,
-                borderRadius: '14px',
-                border: `1px solid ${
-                  isSelected
-                    ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.52 : 0.28)
-                    : alpha(theme.palette.divider, 0.9)
-                }`,
-                backgroundColor: isSelected
-                  ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.08)
-                  : alpha(
-                      theme.palette.background.paper,
-                      theme.palette.mode === 'dark' ? 0.52 : 0.76,
-                    ),
-                color: isSelected ? theme.palette.primary.main : theme.palette.text.secondary,
-                transition: 'none',
-              })}
-            >
-              <Typography variant="button" sx={{ fontWeight: 700, letterSpacing: '0.03em' }}>
-                {option.label}
-              </Typography>
-            </Box>
-          </ButtonBase>
+            {option.label}
+          </Box>
         );
       })}
     </Stack>
