@@ -51,8 +51,30 @@ const exerciseInteractions = async (page) => {
   await page.locator('tbody tr').filter({ hasText: 'NVDA' }).first().click();
   await page.locator('tbody tr[aria-selected="true"]').filter({ hasText: 'NVDA' }).first().waitFor();
 
+  const limitPriceSlot = page.getByTestId('trade-limit-price-slot');
+  const limitPriceInput = limitPriceSlot.locator('input');
+
   await page.getByRole('button', { name: /^Limit$/ }).click();
+  await page.waitForFunction(
+    () => {
+      const input = globalThis.document.querySelector('[data-testid="trade-limit-price-slot"] input');
+
+      return input instanceof globalThis.HTMLInputElement && input.readOnly === false;
+    },
+    { timeout: 5_000 },
+  );
+
   await page.getByRole('button', { name: /^Market$/ }).click();
+  await page.waitForFunction(
+    () => {
+      const input = globalThis.document.querySelector('[data-testid="trade-limit-price-slot"] input');
+
+      return input instanceof globalThis.HTMLInputElement && input.readOnly === true;
+    },
+    { timeout: 5_000 },
+  );
+
+  await limitPriceInput.waitFor();
 
   const sharesInput = page.getByLabel('Shares');
   await sharesInput.click();

@@ -52,7 +52,14 @@ const OrderTypeToggleGroup = memo(({
   }, [committedOrderType]);
 
   return (
-    <Stack direction="row" spacing={1} role="group" aria-label="Order type">
+    <Stack
+      direction="row"
+      spacing={1}
+      role="group"
+      aria-label="Order type"
+      // Isolate the custom toggle paint work from the rest of the ticket on slower CI runners.
+      sx={{ contain: 'layout paint' }}
+    >
       {options.map((option) => {
         const isSelected = displayedOrderType === option.value;
 
@@ -94,6 +101,7 @@ const OrderTypeToggleGroup = memo(({
               textTransform: 'uppercase',
               cursor: 'pointer',
               transition: 'none',
+              contain: 'paint',
               appearance: 'none',
               WebkitAppearance: 'none',
             })}

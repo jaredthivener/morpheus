@@ -97,10 +97,12 @@ describe('TradePanel', () => {
 
     try {
       const limitPriceField = screen.getByLabelText('Limit Price');
+      const orderTypeGroup = screen.getByRole('group', { name: 'Order type' });
 
       expect(limitPriceSlot).toBeVisible();
       expect(limitPriceField).toHaveAttribute('readonly');
       expect(limitPriceField).toBeVisible();
+      expect(orderTypeGroup).toHaveStyle({ contain: 'layout paint' });
 
       const limitButton = screen.getByRole('button', { name: 'Limit' });
 
@@ -157,6 +159,33 @@ describe('TradePanel', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('keeps the custom order-type buttons focusable while isolating their paint work', async () => {
+    renderPanel();
+
+    await screen.findByTestId('trade-limit-price-slot');
+
+    const orderTypeGroup = screen.getByRole('group', { name: 'Order type' });
+    const marketButton = screen.getByRole('button', { name: 'Market' });
+    const limitButton = screen.getByRole('button', { name: 'Limit' });
+
+    expect(orderTypeGroup).toHaveStyle({ contain: 'layout paint' });
+    expect(marketButton).toHaveStyle({ contain: 'paint' });
+    expect(limitButton).toHaveStyle({ contain: 'paint' });
+
+    limitButton.focus();
+
+    expect(limitButton).toHaveFocus();
+
+    fireEvent.click(limitButton);
+
+    expect(limitButton).toHaveAttribute('aria-pressed', 'true');
+    expect(limitButton).toHaveFocus();
+
+    marketButton.focus();
+
+    expect(marketButton).toHaveFocus();
   });
 
   it('shows dismissible market-order feedback and clears it when ticket inputs change', async () => {
