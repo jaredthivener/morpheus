@@ -431,22 +431,20 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
           />
         </Stack>
 
-        <Box data-testid="trade-limit-price-slot" aria-hidden={!showLimitPrice} sx={{ minHeight: 40 }}>
+        <Box data-testid="trade-limit-price-slot" sx={{ minHeight: 40 }}>
           <TextField
             type="number"
             label="Limit Price"
             value={limitPrice || selectedPrice}
-            inputProps={{ min: 0.01, step: 0.01 }}
+            inputProps={{ min: 0.01, step: 0.01, readOnly: !showLimitPrice }}
             onChange={(event) => {
               clearFlash();
               setLimitPrice(Math.max(0.01, Number(event.target.value)));
             }}
             size="small"
             fullWidth
-            disabled={!showLimitPrice}
             sx={{
-              visibility: showLimitPrice ? 'visible' : 'hidden',
-              pointerEvents: showLimitPrice ? 'auto' : 'none',
+              opacity: showLimitPrice ? 1 : 0.72,
             }}
           />
         </Box>
@@ -479,9 +477,7 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
         </Stack>
 
         <Button variant="contained" onClick={() => void submitTrade()} disabled={!canSubmit}>
-          {orderType === 'market'
-            ? `${side === 'buy' ? 'Buy' : 'Sell'} ${shares} at Market`
-            : `Place ${side === 'buy' ? 'Buy' : 'Sell'} Limit`}
+          {`${side === 'buy' ? 'Buy' : 'Sell'} ${shares} Share${shares === 1 ? '' : 's'}`}
         </Button>
 
         <Alert severity={canSubmit ? 'info' : 'warning'} variant="outlined">

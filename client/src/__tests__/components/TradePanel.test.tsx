@@ -98,23 +98,22 @@ describe('TradePanel', () => {
     try {
       const limitPriceField = screen.getByLabelText('Limit Price');
 
-      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
-      expect(limitPriceField).toBeDisabled();
-      expect(limitPriceField).not.toBeVisible();
+      expect(limitPriceSlot).toBeVisible();
+      expect(limitPriceField).toHaveAttribute('readonly');
+      expect(limitPriceField).toBeVisible();
 
       const limitButton = screen.getByRole('button', { name: 'Limit' });
 
       fireEvent.click(limitButton);
 
       expect(limitButton).toHaveAttribute('aria-pressed', 'true');
-      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+      expect(limitPriceField).toHaveAttribute('readonly');
 
       act(() => {
         vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
       });
 
-      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'false');
-      expect(limitPriceField).toBeEnabled();
+      expect(limitPriceField).not.toHaveAttribute('readonly');
       expect(limitPriceField).toBeVisible();
 
       const marketButton = screen.getByRole('button', { name: 'Market' });
@@ -122,15 +121,14 @@ describe('TradePanel', () => {
       fireEvent.click(marketButton);
 
       expect(marketButton).toHaveAttribute('aria-pressed', 'true');
-      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'false');
+      expect(limitPriceField).not.toHaveAttribute('readonly');
 
       act(() => {
         vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
       });
 
-      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
-      expect(limitPriceField).toBeDisabled();
-      expect(limitPriceField).not.toBeVisible();
+      expect(limitPriceField).toHaveAttribute('readonly');
+      expect(limitPriceField).toBeVisible();
     } finally {
       vi.useRealTimers();
     }
@@ -144,6 +142,8 @@ describe('TradePanel', () => {
     vi.useFakeTimers();
 
     try {
+      const limitPriceField = screen.getByLabelText('Limit Price');
+
       fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
       fireEvent.click(screen.getByRole('button', { name: 'Market' }));
 
@@ -152,8 +152,8 @@ describe('TradePanel', () => {
       });
 
       expect(screen.getByRole('button', { name: 'Market' })).toHaveAttribute('aria-pressed', 'true');
-      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
-      expect(screen.getByLabelText('Limit Price')).not.toBeVisible();
+      expect(limitPriceSlot).toBeVisible();
+      expect(limitPriceField).toHaveAttribute('readonly');
     } finally {
       vi.useRealTimers();
     }
@@ -162,7 +162,7 @@ describe('TradePanel', () => {
   it('shows dismissible market-order feedback and clears it when ticket inputs change', async () => {
     renderPanel();
 
-    fireEvent.click(screen.getByRole('button', { name: /buy 1 at market/i }));
+    fireEvent.click(screen.getByRole('button', { name: /buy 1 share/i }));
 
     expect(buyMock).toHaveBeenCalledWith('VOO', 1, 510.42);
     const closeButton = await screen.findByRole('button', { name: /close/i });
@@ -171,12 +171,108 @@ describe('TradePanel', () => {
 
     expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: /buy 1 at market/i }));
+    fireEvent.click(screen.getByRole('button', { name: /buy 1 share/i }));
 
     expect(await screen.findByRole('button', { name: /close/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: '5 sh' }));
 
     expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
+  });
+
+  it('submits a filled limit order and applies the execution price to the portfolio', async () => {
+    submitLimitOrderMock.mockResolvedValueOnce({
+      filled: true,
+      executedPrice: 509.75,
+      reason: 'filled',
+    });
+
+    renderPanel();
+
+    vi.useFakeTimers();
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
+
+      act(() => {
+        vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+      });
+
+      vi.useRealTimers();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /buy 1 share/i }));
+      });
+
+      expect(submitLimitOrderMock).toHaveBeenCalledWith({
+        symbol: 'VOO',
+        side: 'buy',
+        shares: 1,
+        limitPrice: 510.42,
+      });
+      expect(buyMock).toHaveBeenCalledWith('VOO', 1, 509.75);
+      expect(await screen.findByRole('button', { name: /close/i })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows pending limit feedback without filling the portfolio', async () => {
+    submitLimitOrderMock.mockResolvedValueOnce({
+      filled: false,
+      executedPrice: null,
+      reason: 'Awaiting fill',
+    });
+
+    renderPanel();
+
+    vi.useFakeTimers();
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
+
+      act(() => {
+        vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+      });
+
+      vi.useRealTimers();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /buy 1 share/i }));
+      });
+
+      expect(submitLimitOrderMock).toHaveBeenCalledTimes(1);
+      expect(buyMock).not.toHaveBeenCalled();
+      expect(await screen.findByText(/limit pending: awaiting fill/i)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('shows an error when the limit-order request fails', async () => {
+    submitLimitOrderMock.mockRejectedValueOnce(new Error('venue unavailable'));
+
+    renderPanel();
+
+    vi.useFakeTimers();
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
+
+      act(() => {
+        vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+      });
+
+      vi.useRealTimers();
+
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: /buy 1 share/i }));
+      });
+
+      expect(submitLimitOrderMock).toHaveBeenCalledTimes(1);
+      expect(await screen.findByText(/limit order failed: error: venue unavailable/i)).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
