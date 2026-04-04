@@ -10,7 +10,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { memo, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { SessionSparkline } from '../common/SessionSparkline';
 import { useDeferredReveal } from '../../hooks/useDeferredReveal';
@@ -19,6 +19,7 @@ import type { SessionHistory } from '../../utils/marketSession';
 import { formatQuoteFreshness } from '../../utils/marketSession';
 
 const volumeFormatter = new Intl.NumberFormat('en-US');
+export const MARKET_SELECTION_HANDOFF_DELAY_MS = 90;
 
 interface MarketTableProps {
   quotes: Quote[];
@@ -63,6 +64,7 @@ const sourceColor = (source: Quote['source']): 'success' | 'warning' | 'default'
 interface MarketTableRowProps {
   quote: Quote;
   isSelected: boolean;
+  isDashboardSynced: boolean;
   assetType: AssetType;
   values: number[];
   showSparkline: boolean;
@@ -72,6 +74,7 @@ interface MarketTableRowProps {
 const MarketTableRow = memo(({
   quote,
   isSelected,
+  isDashboardSynced,
   assetType,
   values,
   showSparkline,
@@ -79,9 +82,21 @@ const MarketTableRow = memo(({
 }: MarketTableRowProps) => {
   const trendTone =
     quote.price === 0 ? 'neutral' : quote.changePercent >= 0 ? 'positive' : 'negative';
+  const symbolContextLabel =
+    quote.price === 0
+      ? 'Awaiting quote'
+      : isDashboardSynced
+        ? assetType === 'etf'
+          ? 'Focused for comparison'
+          : 'Focused in ticket'
+        : isSelected
+          ? 'Syncing selection'
+      : assetType === 'etf'
+        ? 'Broader exposure idea'
+        : 'Single-stock research';
 
   const selectQuote = () => {
-    if (quote.price <= 0) {
+    if (quote.price <= 0 || isSelected) {
       return;
     }
 
@@ -104,7 +119,6 @@ const MarketTableRow = memo(({
       onKeyDown={handleRowKeyDown}
       sx={(theme) => ({
         cursor: quote.price > 0 ? 'pointer' : 'default',
-        transition: 'background-color 160ms ease',
         backgroundColor: isSelected
           ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.07)
           : 'transparent',
@@ -135,9 +149,6 @@ const MarketTableRow = memo(({
                       : quote.changePercent >= 0
                         ? theme.palette.success.main
                         : theme.palette.error.main,
-                boxShadow: isSelected
-                  ? `0 0 0 6px ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.22 : 0.14)}`
-                  : 'none',
               })}
             />
             <div>
@@ -149,17 +160,10 @@ const MarketTableRow = memo(({
               </Stack>
               <Typography
                 variant="caption"
+                aria-live={isSelected && !isDashboardSynced ? 'polite' : undefined}
                 sx={{ color: isSelected ? 'primary.main' : 'text.secondary', fontWeight: isSelected ? 700 : 500 }}
               >
-                {quote.price === 0
-                  ? 'Awaiting quote'
-                  : assetType === 'etf'
-                    ? isSelected
-                      ? 'Focused for comparison'
-                      : 'Broader exposure idea'
-                    : isSelected
-                      ? 'Focused in ticket'
-                      : 'Single-stock research'}
+                {symbolContextLabel}
               </Typography>
             </div>
           </Stack>
@@ -222,13 +226,47 @@ export const MarketTable = memo(({
   watchlistDescription,
   symbolTypes = {},
 }: MarketTableProps) => {
-    const showSparklines = useDeferredReveal({
+  const [displayedSelectedSymbol, setDisplayedSelectedSymbol] = useState(selectedSymbol);
+  const pendingSelectionHandoffTimerRef = useRef<number | null>(null);
+  const showSparklines = useDeferredReveal({
     delayMs: 900,
-      idleTimeoutMs: 1200,
-      quietWindowMs: 1400,
-    });
+    idleTimeoutMs: 1200,
+    quietWindowMs: 1400,
+  });
 
-    const visibleRows = quotes.length > 0 ? quotes : Array.from({ length: 10 }, (_, idx) => ({
+  useEffect(() => {
+    if (pendingSelectionHandoffTimerRef.current !== null) {
+      window.clearTimeout(pendingSelectionHandoffTimerRef.current);
+      pendingSelectionHandoffTimerRef.current = null;
+    }
+
+    setDisplayedSelectedSymbol(selectedSymbol);
+  }, [selectedSymbol]);
+
+  useEffect(() => {
+    return () => {
+      if (pendingSelectionHandoffTimerRef.current !== null) {
+        window.clearTimeout(pendingSelectionHandoffTimerRef.current);
+      }
+    };
+  }, []);
+
+  const handleSelectSymbol = useCallback((symbol: string) => {
+    setDisplayedSelectedSymbol(symbol);
+
+    if (pendingSelectionHandoffTimerRef.current !== null) {
+      window.clearTimeout(pendingSelectionHandoffTimerRef.current);
+      pendingSelectionHandoffTimerRef.current = null;
+    }
+
+    pendingSelectionHandoffTimerRef.current = window.setTimeout(() => {
+      pendingSelectionHandoffTimerRef.current = null;
+
+      onSelectSymbol(symbol);
+    }, MARKET_SELECTION_HANDOFF_DELAY_MS);
+  }, [onSelectSymbol]);
+
+  const visibleRows = quotes.length > 0 ? quotes : Array.from({ length: 10 }, (_, idx) => ({
       symbol: `--${idx + 1}`,
       price: 0,
       changePercent: 0,
@@ -237,72 +275,73 @@ export const MarketTable = memo(({
       asOf: Date.now(),
     }));
 
-    return (
-      <DashboardPanel
-        title="Watchlist"
-        subtitle={watchlistDescription ?? 'Quotes, session move, and feed freshness in one place.'}
-        action={
-          <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
-            {watchlistLabel ? <Chip label={watchlistLabel} variant="outlined" color="primary" size="small" /> : null}
-            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-              Select a row to sync the ticket.
-            </Typography>
-          </Stack>
-        }
-        minHeight={520}
-      >
-        <Box sx={(theme) => ({ ...insetSurfaceSx(theme), p: 0, overflow: 'hidden' })}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={(theme) => ({ backgroundColor: alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.08 : 0.02) })}>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-                  Symbol
-                </TableCell>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }} align="right">
-                  Price
-                </TableCell>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }} align="right">
-                  Session
-                </TableCell>
-                <TableCell
-                  sx={{
-                    color: 'text.secondary',
-                    fontWeight: 700,
-                    letterSpacing: '0.08em',
-                    textTransform: 'uppercase',
-                    display: { xs: 'none', md: 'table-cell' },
-                  }}
-                  align="right"
-                >
-                  Volume
-                </TableCell>
-                <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }} align="right">
-                  Feed
-                </TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {visibleRows.map((quote) => {
-                const values = priceHistory[quote.symbol] ?? (quote.price > 0 ? [quote.price] : []);
-                const assetType = symbolTypes[quote.symbol] ?? 'stock';
+  return (
+    <DashboardPanel
+      title="Watchlist"
+      subtitle={watchlistDescription ?? 'Quotes, session move, and feed freshness in one place.'}
+      action={
+        <Stack direction="row" spacing={1} alignItems="center" useFlexGap flexWrap="wrap">
+          {watchlistLabel ? <Chip label={watchlistLabel} variant="outlined" color="primary" size="small" /> : null}
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            Select a row to sync the ticket.
+          </Typography>
+        </Stack>
+      }
+      minHeight={520}
+    >
+      <Box sx={(theme) => ({ ...insetSurfaceSx(theme), p: 0, overflow: 'hidden' })}>
+        <Table size="small">
+          <TableHead>
+            <TableRow sx={(theme) => ({ backgroundColor: alpha(theme.palette.common.black, theme.palette.mode === 'dark' ? 0.08 : 0.02) })}>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+                Symbol
+              </TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }} align="right">
+                Price
+              </TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }} align="right">
+                Session
+              </TableCell>
+              <TableCell
+                sx={{
+                  color: 'text.secondary',
+                  fontWeight: 700,
+                  letterSpacing: '0.08em',
+                  textTransform: 'uppercase',
+                  display: { xs: 'none', md: 'table-cell' },
+                }}
+                align="right"
+              >
+                Volume
+              </TableCell>
+              <TableCell sx={{ color: 'text.secondary', fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase' }} align="right">
+                Feed
+              </TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {visibleRows.map((quote) => {
+              const values = priceHistory[quote.symbol] ?? (quote.price > 0 ? [quote.price] : []);
+              const assetType = symbolTypes[quote.symbol] ?? 'stock';
 
-                return (
-                  <MarketTableRow
-                    key={quote.symbol}
-                    quote={quote}
-                    isSelected={quote.symbol === selectedSymbol && quote.price > 0}
-                    assetType={assetType}
-                    values={values}
-                    showSparkline={showSparklines}
-                    onSelectSymbol={onSelectSymbol}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
-        </Box>
-      </DashboardPanel>
-    );
-  });
+              return (
+                <MarketTableRow
+                  key={quote.symbol}
+                  quote={quote}
+                  isSelected={quote.symbol === displayedSelectedSymbol && quote.price > 0}
+                  isDashboardSynced={quote.symbol === selectedSymbol && quote.price > 0}
+                  assetType={assetType}
+                  values={values}
+                  showSparkline={showSparklines}
+                  onSelectSymbol={handleSelectSymbol}
+                />
+              );
+            })}
+          </TableBody>
+        </Table>
+      </Box>
+    </DashboardPanel>
+  );
+});
 
 MarketTable.displayName = 'MarketTable';
