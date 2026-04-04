@@ -49,7 +49,11 @@ const exerciseInteractions = async (page) => {
   await page.locator('tbody tr').filter({ hasText: 'SOXX' }).first().waitFor();
 
   await page.locator('tbody tr').filter({ hasText: 'NVDA' }).first().click();
-  await page.locator('tbody tr[aria-selected="true"]').filter({ hasText: 'NVDA' }).first().waitFor();
+  const selectedMarketRow = page.locator('tbody tr[aria-selected="true"]').filter({ hasText: 'NVDA' }).first();
+  const selectedMarketSymbolShell = selectedMarketRow.getByTestId('market-symbol-shell-NVDA');
+
+  await selectedMarketRow.waitFor();
+  await selectedMarketSymbolShell.waitFor({ state: 'visible' });
 
   const limitPriceSlot = page.getByTestId('trade-limit-price-slot');
   const limitPriceInput = limitPriceSlot.locator('input');

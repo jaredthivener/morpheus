@@ -20,6 +20,7 @@ import { formatQuoteFreshness } from '../../utils/marketSession';
 
 const volumeFormatter = new Intl.NumberFormat('en-US');
 export const MARKET_SELECTION_HANDOFF_DELAY_MS = 90;
+const MARKET_SYMBOL_SHELL_CLASS_NAME = 'market-table-symbol-shell';
 
 interface MarketTableProps {
   quotes: Quote[];
@@ -80,18 +81,20 @@ const MarketTableRow = memo(({
   showSparkline,
   onSelectSymbol,
 }: MarketTableRowProps) => {
+  const isSelectionPending = isSelected && !isDashboardSynced;
+  const isSelectionCommitted = isDashboardSynced;
   const trendTone =
     quote.price === 0 ? 'neutral' : quote.changePercent >= 0 ? 'positive' : 'negative';
   const symbolContextLabel =
     quote.price === 0
       ? 'Awaiting quote'
-      : isDashboardSynced
+      : isSelectionCommitted
         ? assetType === 'etf'
           ? 'Focused for comparison'
           : 'Focused in ticket'
-        : isSelected
+        : isSelectionPending
           ? 'Syncing selection'
-      : assetType === 'etf'
+        : assetType === 'etf'
         ? 'Broader exposure idea'
         : 'Single-stock research';
 
@@ -112,70 +115,94 @@ const MarketTableRow = memo(({
 
   return (
     <TableRow
-      hover={quote.price > 0}
       tabIndex={quote.price > 0 ? 0 : -1}
       aria-selected={isSelected}
       onClick={selectQuote}
       onKeyDown={handleRowKeyDown}
       sx={(theme) => ({
         cursor: quote.price > 0 ? 'pointer' : 'default',
-        backgroundColor: isSelected
-          ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.07)
-          : 'transparent',
         '& td': {
           borderBottom: `1px solid ${alpha(theme.palette.divider, 0.9)}`,
         },
-        '&:hover': quote.price > 0
+        // Keep hover and selection paint on the symbol shell so the row click does not repaint every metric cell.
+        [`& td:first-of-type .${MARKET_SYMBOL_SHELL_CLASS_NAME}`]: {
+          backgroundColor: isSelectionCommitted
+            ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.12 : 0.07)
+            : 'transparent',
+        },
+        [`&:hover td:first-of-type .${MARKET_SYMBOL_SHELL_CLASS_NAME}`]: quote.price > 0
           ? {
-              backgroundColor: isSelected
+              backgroundColor: isSelectionCommitted
                 ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.1)
                 : alpha(theme.palette.text.primary, theme.palette.mode === 'dark' ? 0.06 : 0.025),
             }
           : undefined,
+        [`&:focus-visible td:first-of-type .${MARKET_SYMBOL_SHELL_CLASS_NAME}`]: {
+          boxShadow: `inset 0 0 0 1px ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.75 : 0.45)}`,
+        },
       })}
     >
         <TableCell>
-          <Stack direction="row" spacing={1.25} alignItems="center">
-            <Box
-              sx={(theme) => ({
-                width: 10,
-                height: 10,
-                borderRadius: '50%',
-                backgroundColor:
-                  quote.price === 0
-                    ? theme.palette.text.disabled
-                    : isSelected
-                      ? theme.palette.primary.main
-                      : quote.changePercent >= 0
-                        ? theme.palette.success.main
-                        : theme.palette.error.main,
-              })}
-            />
-            <div>
-              <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
-                <Typography sx={{ color: 'text.primary', fontWeight: 700, letterSpacing: '0.02em' }}>
-                  {quote.symbol}
+          <Box
+            className={MARKET_SYMBOL_SHELL_CLASS_NAME}
+            data-testid={`market-symbol-shell-${quote.symbol}`}
+            data-selection-visual-state={
+              isSelectionCommitted ? 'synced' : isSelectionPending ? 'pending' : 'idle'
+            }
+            sx={{ borderRadius: 2, px: 1, py: 0.75, contain: 'paint', transition: 'none' }}
+          >
+            <Stack direction="row" spacing={1.25} alignItems="center">
+              <Box
+                sx={(theme) => ({
+                  width: 10,
+                  height: 10,
+                  borderRadius: '50%',
+                  backgroundColor:
+                    quote.price === 0
+                      ? theme.palette.text.disabled
+                      : isSelected
+                        ? theme.palette.primary.main
+                        : quote.changePercent >= 0
+                          ? theme.palette.success.main
+                          : theme.palette.error.main,
+                })}
+              />
+              <div>
+                <Stack direction="row" spacing={0.75} alignItems="center" useFlexGap flexWrap="wrap">
+                  <Typography sx={{ color: 'text.primary', fontWeight: 700, letterSpacing: '0.02em' }}>
+                    {quote.symbol}
+                  </Typography>
+                  <Chip label={assetType.toUpperCase()} size="small" variant="outlined" />
+                </Stack>
+                <Typography
+                  variant="caption"
+                  aria-live={isSelectionPending ? 'polite' : undefined}
+                  sx={{
+                    color: isSelectionCommitted ? 'primary.main' : 'text.secondary',
+                    fontWeight: isSelectionCommitted ? 700 : 500,
+                  }}
+                >
+                  {symbolContextLabel}
                 </Typography>
-                <Chip label={assetType.toUpperCase()} size="small" variant="outlined" />
-              </Stack>
-              <Typography
-                variant="caption"
-                aria-live={isSelected && !isDashboardSynced ? 'polite' : undefined}
-                sx={{ color: isSelected ? 'primary.main' : 'text.secondary', fontWeight: isSelected ? 700 : 500 }}
-              >
-                {symbolContextLabel}
-              </Typography>
-            </div>
-          </Stack>
+              </div>
+            </Stack>
+          </Box>
         </TableCell>
         <TableCell sx={{ color: 'text.primary', fontWeight: 700 }} align="right">
-          {quote.price === 0 ? '--' : `$${quote.price.toFixed(2)}`}
+          <Box component="span" sx={{ display: 'inline-block', contain: 'paint' }}>
+            {quote.price === 0 ? '--' : `$${quote.price.toFixed(2)}`}
+          </Box>
         </TableCell>
         <TableCell align="right" sx={{ width: 160 }}>
           {quote.price === 0 ? (
             '--'
           ) : (
-            <Stack alignItems="flex-end" spacing={0.5}>
+            <Stack
+              alignItems="flex-end"
+              spacing={0.5}
+              data-testid={`market-session-panel-${quote.symbol}`}
+              sx={{ contain: 'paint' }}
+            >
               {showSparkline ? (
                 <SessionSparkline values={values} tone={trendTone} />
               ) : (
@@ -194,13 +221,20 @@ const MarketTableRow = memo(({
           sx={{ color: 'text.secondary', display: { xs: 'none', md: 'table-cell' } }}
           align="right"
         >
-          {quote.price === 0 ? '--' : volumeFormatter.format(quote.volume)}
+          <Box component="span" sx={{ display: 'inline-block', contain: 'paint' }}>
+            {quote.price === 0 ? '--' : volumeFormatter.format(quote.volume)}
+          </Box>
         </TableCell>
         <TableCell align="right">
           {quote.price === 0 ? (
             '--'
           ) : (
-            <Stack alignItems="flex-end" spacing={0.5}>
+            <Stack
+              alignItems="flex-end"
+              spacing={0.5}
+              data-testid={`market-feed-panel-${quote.symbol}`}
+              sx={{ contain: 'paint' }}
+            >
               <Chip
                 label={quote.source.toUpperCase()}
                 size="small"
@@ -226,8 +260,9 @@ export const MarketTable = memo(({
   watchlistDescription,
   symbolTypes = {},
 }: MarketTableProps) => {
-  const [displayedSelectedSymbol, setDisplayedSelectedSymbol] = useState(selectedSymbol);
+  const [pendingSelectionSymbol, setPendingSelectionSymbol] = useState<string | null>(null);
   const pendingSelectionHandoffTimerRef = useRef<number | null>(null);
+  const previousSelectedSymbolRef = useRef(selectedSymbol);
   const showSparklines = useDeferredReveal({
     delayMs: 900,
     idleTimeoutMs: 1200,
@@ -235,13 +270,23 @@ export const MarketTable = memo(({
   });
 
   useEffect(() => {
+    if (previousSelectedSymbolRef.current === selectedSymbol) {
+      return;
+    }
+
+    previousSelectedSymbolRef.current = selectedSymbol;
+
+    if (pendingSelectionSymbol === null) {
+      return;
+    }
+
     if (pendingSelectionHandoffTimerRef.current !== null) {
       window.clearTimeout(pendingSelectionHandoffTimerRef.current);
       pendingSelectionHandoffTimerRef.current = null;
     }
 
-    setDisplayedSelectedSymbol(selectedSymbol);
-  }, [selectedSymbol]);
+    setPendingSelectionSymbol(null);
+  }, [pendingSelectionSymbol, selectedSymbol]);
 
   useEffect(() => {
     return () => {
@@ -252,7 +297,7 @@ export const MarketTable = memo(({
   }, []);
 
   const handleSelectSymbol = useCallback((symbol: string) => {
-    setDisplayedSelectedSymbol(symbol);
+    setPendingSelectionSymbol(symbol);
 
     if (pendingSelectionHandoffTimerRef.current !== null) {
       window.clearTimeout(pendingSelectionHandoffTimerRef.current);
@@ -265,6 +310,8 @@ export const MarketTable = memo(({
       onSelectSymbol(symbol);
     }, MARKET_SELECTION_HANDOFF_DELAY_MS);
   }, [onSelectSymbol]);
+
+  const displayedSelectedSymbol = pendingSelectionSymbol ?? selectedSymbol;
 
   const visibleRows = quotes.length > 0 ? quotes : Array.from({ length: 10 }, (_, idx) => ({
       symbol: `--${idx + 1}`,
