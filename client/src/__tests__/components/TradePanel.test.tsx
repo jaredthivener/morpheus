@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { ThemeProvider } from '@mui/material/styles';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const { fetchOrderBookMock, submitLimitOrderMock } = vi.hoisted(() => ({
@@ -33,7 +33,10 @@ vi.mock('../../store/portfolioStore', () => ({
     }),
 }));
 
-import { TradePanel } from '../../components/trading/TradePanel';
+import {
+  ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS,
+  TradePanel,
+} from '../../components/trading/TradePanel';
 import { buildAppTheme } from '../../theme';
 
 const renderPanel = () => {
@@ -85,22 +88,70 @@ describe('TradePanel', () => {
     renderPanel();
 
     const limitPriceSlot = await screen.findByTestId('trade-limit-price-slot');
-    const limitPriceField = screen.getByLabelText('Limit Price');
 
-    expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
-    expect(limitPriceField).toBeDisabled();
-    expect(limitPriceField).not.toBeVisible();
+    vi.useFakeTimers();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
+    try {
+      const limitPriceField = screen.getByLabelText('Limit Price');
 
-    expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'false');
-    expect(limitPriceField).toBeEnabled();
-    expect(limitPriceField).toBeVisible();
+      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+      expect(limitPriceField).toBeDisabled();
+      expect(limitPriceField).not.toBeVisible();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Market' }));
+      const limitButton = screen.getByRole('button', { name: 'Limit' });
 
-    expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
-    expect(limitPriceField).toBeDisabled();
-    expect(limitPriceField).not.toBeVisible();
+      fireEvent.click(limitButton);
+
+      expect(limitButton).toHaveAttribute('aria-pressed', 'true');
+      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+
+      act(() => {
+        vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+      });
+
+      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'false');
+      expect(limitPriceField).toBeEnabled();
+      expect(limitPriceField).toBeVisible();
+
+      const marketButton = screen.getByRole('button', { name: 'Market' });
+
+      fireEvent.click(marketButton);
+
+      expect(marketButton).toHaveAttribute('aria-pressed', 'true');
+      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'false');
+
+      act(() => {
+        vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+      });
+
+      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+      expect(limitPriceField).toBeDisabled();
+      expect(limitPriceField).not.toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('skips the heavy limit-field swap when the order type is toggled back immediately', async () => {
+    renderPanel();
+
+    const limitPriceSlot = await screen.findByTestId('trade-limit-price-slot');
+
+    vi.useFakeTimers();
+
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Limit' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Market' }));
+
+      act(() => {
+        vi.advanceTimersByTime(ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+      });
+
+      expect(screen.getByRole('button', { name: 'Market' })).toHaveAttribute('aria-pressed', 'true');
+      expect(limitPriceSlot).toHaveAttribute('aria-hidden', 'true');
+      expect(screen.getByLabelText('Limit Price')).not.toBeVisible();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

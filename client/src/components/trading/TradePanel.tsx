@@ -12,7 +12,7 @@ import {
 } from '@mui/material';
 import { alpha } from '@mui/material/styles';
 import { useQuery } from '@tanstack/react-query';
-import { memo, useEffect, useState } from 'react';
+import { memo, startTransition, useEffect, useRef, useState } from 'react';
 import { fetchOrderBook, submitLimitOrder } from '../../api/client';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { usePortfolioStore } from '../../store/portfolioStore';
@@ -32,12 +32,56 @@ type FlashState = {
   severity: 'success' | 'info' | 'warning' | 'error';
 };
 
+export const ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS = 90;
+
+const OrderTypeToggleGroup = memo(({
+  committedOrderType,
+  onChange,
+}: {
+  committedOrderType: OrderType;
+  onChange: (nextType: OrderType | null) => void;
+}) => {
+  const [displayedOrderType, setDisplayedOrderType] = useState<OrderType>(committedOrderType);
+
+  useEffect(() => {
+    setDisplayedOrderType(committedOrderType);
+  }, [committedOrderType]);
+
+  return (
+    <ToggleButtonGroup
+      fullWidth
+      exclusive
+      value={displayedOrderType}
+      onChange={(_, nextType: OrderType | null) => {
+        if (!nextType) {
+          return;
+        }
+
+        setDisplayedOrderType(nextType);
+        onChange(nextType);
+      }}
+      size="small"
+      color="primary"
+    >
+      <ToggleButton value="market" disableRipple>
+        Market
+      </ToggleButton>
+      <ToggleButton value="limit" disableRipple>
+        Limit
+      </ToggleButton>
+    </ToggleButtonGroup>
+  );
+});
+
+OrderTypeToggleGroup.displayName = 'OrderTypeToggleGroup';
+
 export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: TradePanelProps) => {
   const [shares, setShares] = useState(1);
   const [side, setSide] = useState<TradeSide>('buy');
   const [orderType, setOrderType] = useState<OrderType>('market');
   const [limitPrice, setLimitPrice] = useState(0);
   const [flash, setFlash] = useState<FlashState | null>(null);
+  const pendingOrderTypeHandoffTimerRef = useRef<number | null>(null);
 
   const buy = usePortfolioStore((state) => state.buy);
   const sell = usePortfolioStore((state) => state.sell);
@@ -87,6 +131,14 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
     }
   }, [limitPrice, orderType, selectedPrice]);
 
+  useEffect(() => {
+    return () => {
+      if (pendingOrderTypeHandoffTimerRef.current !== null) {
+        window.clearTimeout(pendingOrderTypeHandoffTimerRef.current);
+      }
+    };
+  }, []);
+
   const estimatedExecutionPrice =
     orderType === 'market' ? (side === 'buy' ? bestAsk : bestBid) : Math.max(limitPrice, 0);
   const estimatedNotional = shares * estimatedExecutionPrice;
@@ -131,6 +183,28 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
         ? 'warning'
         : 'default';
   const showLimitPrice = orderType === 'limit';
+
+  const handleOrderTypeChange = (nextType: OrderType | null) => {
+    if (!nextType) {
+      return;
+    }
+
+    if (pendingOrderTypeHandoffTimerRef.current !== null) {
+      window.clearTimeout(pendingOrderTypeHandoffTimerRef.current);
+      pendingOrderTypeHandoffTimerRef.current = null;
+    }
+
+    if (nextType === orderType) {
+      return;
+    }
+
+    pendingOrderTypeHandoffTimerRef.current = window.setTimeout(() => {
+      pendingOrderTypeHandoffTimerRef.current = null;
+      startTransition(() => {
+        setOrderType(nextType);
+      });
+    }, ORDER_TYPE_SURFACE_HANDOFF_DELAY_MS);
+  };
 
   const submitTrade = async (): Promise<void> => {
     if (!canSubmit) {
@@ -255,25 +329,11 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
             size="small"
             color="primary"
           >
-            <ToggleButton value="buy">Buy</ToggleButton>
-            <ToggleButton value="sell">Sell</ToggleButton>
+            <ToggleButton value="buy" disableRipple>Buy</ToggleButton>
+            <ToggleButton value="sell" disableRipple>Sell</ToggleButton>
           </ToggleButtonGroup>
 
-          <ToggleButtonGroup
-            fullWidth
-            exclusive
-            value={orderType}
-            onChange={(_, nextType: OrderType | null) => {
-              if (nextType) {
-                setOrderType(nextType);
-              }
-            }}
-            size="small"
-            color="primary"
-          >
-            <ToggleButton value="market">Market</ToggleButton>
-            <ToggleButton value="limit">Limit</ToggleButton>
-          </ToggleButtonGroup>
+          <OrderTypeToggleGroup committedOrderType={orderType} onChange={handleOrderTypeChange} />
         </Stack>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.25}>

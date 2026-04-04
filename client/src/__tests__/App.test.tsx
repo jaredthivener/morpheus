@@ -170,6 +170,7 @@ vi.mock('../components/portfolio/BacktestPanel', () => ({
 }));
 
 import { App, OVERVIEW_FOCUS_HANDOFF_DELAY_MS } from '../App';
+import { INVESTOR_PROFILE_STORAGE_KEY } from '../utils/investorProfile';
 
 type IdleCallback = Parameters<NonNullable<typeof window.requestIdleCallback>>[0];
 
@@ -180,6 +181,7 @@ describe('App', () => {
   beforeEach(() => {
     mockedSetPrice.mockClear();
     window.localStorage.clear();
+    window.history.pushState({}, '', '/');
   });
 
   afterEach(() => {
@@ -340,5 +342,21 @@ describe('App', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('pins interaction perf mode to the ETF starter lens and skips profile persistence', async () => {
+    window.localStorage.setItem(INVESTOR_PROFILE_STORAGE_KEY, 'growth-explorer');
+    window.history.pushState({}, '', '/?dtn-perf=interaction');
+
+    render(<App colorMode="dark" onToggleColorMode={vi.fn()} />);
+
+    expect(screen.getByText('investor profile etf-starter')).toBeInTheDocument();
+    expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO,VTI')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'switch profile' }));
+
+    expect(await screen.findByText('market table Growth Explorer')).toBeInTheDocument();
+    expect(window.localStorage.getItem(INVESTOR_PROFILE_STORAGE_KEY)).toBe('growth-explorer');
   });
 });

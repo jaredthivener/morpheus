@@ -69,8 +69,8 @@ morpheus/
 ### 1. Investor Lens → Watchlist
 
 - `client/src/App.tsx` resolves the active investor profile from local storage.
-- The selected profile updates the onboarding lens selector immediately so the click acknowledges within the same interaction frame.
-- The watchlist-driving market surface advances through a short deferred handoff so profile changes do not block first paint of the interaction.
+- `client/src/components/onboarding/InvestorProfilePanel.tsx` owns the immediate visual acknowledgment of a newly selected lens so the selected card updates inside the click frame without requiring the heavier dashboard surfaces to re-render.
+- `client/src/App.tsx` advances the watchlist-driving market surface through a short deferred handoff after the click so quote and ticket updates stay off the initial interaction path.
 - The watchlist drives the market-data query key, the visible market table, and the default symbol routed into the paper ticket.
 
 ### 2. Quote Read Path
@@ -94,6 +94,7 @@ morpheus/
 
 - The market table selection and symbol selector both feed the paper order ticket.
 - The ticket queries `/api/v1/order-book` for bid, ask, and spread context.
+- The ticket lets order-type toggle selection acknowledge immediately, then hands the heavier market-versus-limit form swap off after a short delay so the click path stays responsive on slower hardware.
 - Market orders execute locally against the simulated portfolio store.
 - Limit orders are checked by the server and then reflected locally when simulated fills occur.
 
@@ -136,6 +137,7 @@ Pull request enforcement:
 - Protected branch rules must require those checks on the latest PR commit before merge so performance budgets and security analysis are enforced before code lands.
 - The performance workflow resolves a Chromium-family executable on the runner and exports `PLAYWRIGHT_CHROMIUM_EXECUTABLE` so the browser-based INP gate runs consistently in CI.
 - Lighthouse collection reads its target URL from environment configuration, so isolated local perf runs can point at the preview instance created by `scripts/perf/run-all.mjs` instead of accidentally auditing another local server.
+- Explicit interaction-perf mode pins the dashboard to the ETF Starter lens and skips profile persistence so scripted INP always measures the same initial watchlist state instead of inheriting a saved browser preference.
 
 Implementation details:
 
