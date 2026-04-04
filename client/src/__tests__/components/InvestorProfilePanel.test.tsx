@@ -1,5 +1,5 @@
 import { ThemeProvider, createTheme } from '@mui/material/styles';
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { InvestorProfilePanel } from '../../components/onboarding/InvestorProfilePanel';
 import { INVESTOR_PROFILES } from '../../utils/investorProfile';
@@ -31,7 +31,6 @@ describe('InvestorProfilePanel', () => {
 
     expect(onSelectProfile).toHaveBeenCalledWith('balanced-builder');
     expect(balancedBuilderButton).toHaveAttribute('aria-pressed', 'true');
-    expect(within(balancedBuilderButton).getByText('Current lens')).toBeInTheDocument();
     expect(screen.queryByText('QQQ ETF')).not.toBeInTheDocument();
 
     rerender(

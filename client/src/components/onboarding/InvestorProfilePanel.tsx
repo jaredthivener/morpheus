@@ -62,12 +62,7 @@ export const InvestorProfilePanel = memo(({
                           ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.78 : 0.42)
                           : alpha(theme.palette.divider, 0.92)
                       }`,
-                      ...(isSelected
-                        ? {
-                            background: `linear-gradient(180deg, ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.1)} 0%, ${alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.26 : 0.68)} 100%)`,
-                          }
-                        : null),
-                      transition: 'border-color 160ms ease, background-color 160ms ease',
+                      transition: 'none',
                       '&:hover': {
                         borderColor: alpha(
                           theme.palette.primary.main,
@@ -123,15 +118,14 @@ export const InvestorProfilePanel = memo(({
                         <Typography
                           variant="caption"
                           sx={{
-                            color: isSelected ? 'primary.main' : 'text.secondary',
+                            color: 'text.secondary',
                             fontWeight: 700,
                             letterSpacing: '0.08em',
                             textTransform: 'uppercase',
                           }}
                         >
-                          {isSelected ? 'Current lens' : 'Switch lens'}
+                          Tap to focus
                         </Typography>
-                        {isSelected ? <Chip label="Active" size="small" color="primary" /> : null}
                       </Stack>
                     </Stack>
                   </Box>
