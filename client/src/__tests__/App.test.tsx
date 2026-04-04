@@ -19,6 +19,14 @@ const mockedQuoteDataByWatchlist = vi.hoisted(() => ({
       source: 'live' as const,
       asOf: Date.now(),
     },
+    {
+      symbol: 'VTI',
+      price: 289.14,
+      changePercent: 0.43,
+      volume: 980_000,
+      source: 'live' as const,
+      asOf: Date.now(),
+    },
   ],
   [GROWTH_EXPLORER_WATCHLIST_KEY]: [
     {
@@ -26,6 +34,14 @@ const mockedQuoteDataByWatchlist = vi.hoisted(() => ({
       price: 487.18,
       changePercent: 1.12,
       volume: 2_840_000,
+      source: 'live' as const,
+      asOf: Date.now(),
+    },
+    {
+      symbol: 'NVDA',
+      price: 122.84,
+      changePercent: 2.18,
+      volume: 4_120_000,
       source: 'live' as const,
       asOf: Date.now(),
     },
@@ -70,23 +86,32 @@ vi.mock('../components/layout/AppShell', () => ({
 }));
 
 vi.mock('../components/layout/AccountOverview', () => ({
-  AccountOverview: () => <div>account overview</div>,
+  AccountOverview: ({ selectedQuote }: { selectedQuote?: { symbol: string } }) => (
+    <div>{`account overview ${selectedQuote?.symbol ?? '--'}`}</div>
+  ),
 }));
 
 vi.mock('../components/market/MarketTable', () => ({
   MarketTable: ({
     quotes,
     selectedSymbol,
+    onSelectSymbol,
     watchlistLabel,
   }: {
     quotes: Array<{ symbol: string }>;
     selectedSymbol: string;
+    onSelectSymbol: (symbol: string) => void;
     watchlistLabel: string;
   }) => (
     <div>
       <div>{`market table ${watchlistLabel}`}</div>
       <div>{`market rows ${quotes.map((quote) => quote.symbol).join(',')}`}</div>
       <div>{`market selected ${selectedSymbol}`}</div>
+      {quotes.map((quote) => (
+        <button key={quote.symbol} type="button" onClick={() => onSelectSymbol(quote.symbol)}>
+          {`select ${quote.symbol}`}
+        </button>
+      ))}
     </div>
   ),
 }));
@@ -144,7 +169,7 @@ vi.mock('../components/portfolio/BacktestPanel', () => ({
   BacktestPanel: () => <div>backtest panel loaded</div>,
 }));
 
-import { App } from '../App';
+import { App, OVERVIEW_FOCUS_HANDOFF_DELAY_MS } from '../App';
 
 type IdleCallback = Parameters<NonNullable<typeof window.requestIdleCallback>>[0];
 
@@ -192,9 +217,9 @@ describe('App', () => {
     render(<App colorMode="dark" onToggleColorMode={vi.fn()} />);
 
     expect(screen.getByTestId('app-shell')).toBeInTheDocument();
-    expect(screen.getByText('account overview')).toBeInTheDocument();
+    expect(screen.getByText('account overview VOO')).toBeInTheDocument();
     expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
-    expect(screen.getByText('market rows VOO')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO,VTI')).toBeInTheDocument();
     expect(screen.getByText('market selected VOO')).toBeInTheDocument();
     expect(screen.getByText('investor profile etf-starter')).toBeInTheDocument();
     expect(screen.getByText('AI Guidance for Everyday Investors')).toBeInTheDocument();
@@ -234,20 +259,20 @@ describe('App', () => {
 
     expect(screen.getByText('investor profile etf-starter')).toBeInTheDocument();
     expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
-    expect(screen.getByText('market rows VOO')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO,VTI')).toBeInTheDocument();
     expect(screen.getByText('market selected VOO')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'switch profile' }));
 
     expect(screen.getByText('investor profile growth-explorer')).toBeInTheDocument();
     expect(screen.getByText('market table ETF Starter')).toBeInTheDocument();
-    expect(screen.getByText('market rows VOO')).toBeInTheDocument();
+    expect(screen.getByText('market rows VOO,VTI')).toBeInTheDocument();
     expect(screen.getByText('market selected VOO')).toBeInTheDocument();
 
     expect(await screen.findByText('market table Growth Explorer')).toBeInTheDocument();
-    expect(screen.getByText('market rows QQQ')).toBeInTheDocument();
+    expect(screen.getByText('market rows QQQ,NVDA')).toBeInTheDocument();
     expect(screen.getByText('market selected QQQ')).toBeInTheDocument();
-    expect(screen.queryByText('market rows VOO')).not.toBeInTheDocument();
+    expect(screen.queryByText('market rows VOO,VTI')).not.toBeInTheDocument();
   });
 
   it('keeps the revealed lower panels responsive when switching profiles after idle reveal', async () => {
@@ -289,7 +314,31 @@ describe('App', () => {
 
     expect(await screen.findByText('market table Growth Explorer')).toBeInTheDocument();
     expect(await screen.findByText('trade panel loaded QQQ')).toBeInTheDocument();
-    expect(screen.getByText('market rows QQQ')).toBeInTheDocument();
+    expect(screen.getByText('market rows QQQ,NVDA')).toBeInTheDocument();
     expect(screen.getByText('market selected QQQ')).toBeInTheDocument();
+  });
+
+  it('updates the watchlist selection immediately while the overview focus card catches up after a short handoff', async () => {
+    vi.useFakeTimers();
+
+    try {
+      render(<App colorMode="dark" onToggleColorMode={vi.fn()} />);
+
+      expect(screen.getByText('market selected VOO')).toBeInTheDocument();
+      expect(screen.getByText('account overview VOO')).toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: 'select VTI' }));
+
+      expect(screen.getByText('market selected VTI')).toBeInTheDocument();
+      expect(screen.getByText('account overview VOO')).toBeInTheDocument();
+
+      await act(async () => {
+        vi.advanceTimersByTime(OVERVIEW_FOCUS_HANDOFF_DELAY_MS + 10);
+      });
+
+      expect(screen.getByText('account overview VTI')).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

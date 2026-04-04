@@ -55,8 +55,25 @@ const LazyBacktestPanel = lazy(async () => {
 const SECONDARY_PANEL_DELAY_MS = 1400;
 const SECONDARY_PANEL_IDLE_TIMEOUT_MS = 3000;
 const SECONDARY_PANEL_QUIET_WINDOW_MS = 1800;
+export const OVERVIEW_FOCUS_HANDOFF_DELAY_MS = 90;
 // Let the selector acknowledge first, then move the heavier market surface update off the same click.
 const PROFILE_SURFACE_HANDOFF_DELAY_MS = 120;
+
+const isInteractionPerfMode = () => {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  return new URLSearchParams(window.location.search).get('dtn-perf') === 'interaction';
+};
+
+const getInitialAppProfileId = (): InvestorProfileId => {
+  if (isInteractionPerfMode()) {
+    return 'etf-starter';
+  }
+
+  return getInitialInvestorProfileId();
+};
 
 const DeferredPanelPlaceholder = ({
   title,
@@ -162,8 +179,9 @@ interface AppProps {
 
 export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const [activeProfileId, setActiveProfileId] = useState<InvestorProfileId>(() =>
-    getInitialInvestorProfileId(),
+    getInitialAppProfileId(),
   );
+  const isPerfMode = isInteractionPerfMode();
   const activeProfile = getInvestorProfile(activeProfileId);
   const pendingProfileHandoffTimerRef = useRef<number | null>(null);
   const watchlist = activeProfile.watchlist.map((entry) => entry.symbol);
@@ -173,9 +191,11 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
     activeProfile.watchlist.map((entry) => [entry.symbol, entry.assetType]),
   );
   const [selectedSymbol, setSelectedSymbol] = useState<string>(defaultWatchlistSymbol);
+  const [overviewSymbol, setOverviewSymbol] = useState<string>(defaultWatchlistSymbol);
   const isSelectedSymbolInWatchlist = watchlist.includes(selectedSymbol);
   const [liveQuotes, setLiveQuotes] = useState<Quote[]>([]);
   const [sessionHistory, setSessionHistory] = useState<Record<string, number[]>>({});
+  const pendingOverviewHandoffTimerRef = useRef<number | null>(null);
   const deferredSelectedSymbol = useDeferredValue(selectedSymbol);
   const showDeferredPanels = useDeferredReveal({
     delayMs: SECONDARY_PANEL_DELAY_MS,
@@ -211,13 +231,21 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   });
 
   useEffect(() => {
+    if (isPerfMode) {
+      return;
+    }
+
     persistInvestorProfileId(activeProfileId);
-  }, [activeProfileId]);
+  }, [activeProfileId, isPerfMode]);
 
   useEffect(() => {
     return () => {
       if (pendingProfileHandoffTimerRef.current !== null) {
         window.clearTimeout(pendingProfileHandoffTimerRef.current);
+      }
+
+      if (pendingOverviewHandoffTimerRef.current !== null) {
+        window.clearTimeout(pendingOverviewHandoffTimerRef.current);
       }
     };
   }, []);
@@ -252,6 +280,35 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
   const quotes = liveQuotes.length > 0 ? liveQuotes : marketQuery.data ?? [];
   const deferredTradeQuotes = useDeferredValue(quotes);
   const selectedQuote = quotes.find((quote) => quote.symbol === selectedSymbol) ?? quotes[0];
+  const selectedQuoteSymbol = selectedQuote?.symbol ?? '';
+  const overviewQuote = quotes.find((quote) => quote.symbol === overviewSymbol) ?? selectedQuote;
+
+  useEffect(() => {
+    // Keep the row selection paint ahead of the larger overview refresh on slower runners.
+    if (selectedQuoteSymbol.length === 0 || selectedQuoteSymbol === overviewSymbol) {
+      return;
+    }
+
+    if (pendingOverviewHandoffTimerRef.current !== null) {
+      window.clearTimeout(pendingOverviewHandoffTimerRef.current);
+    }
+
+    pendingOverviewHandoffTimerRef.current = window.setTimeout(() => {
+      pendingOverviewHandoffTimerRef.current = null;
+
+      startTransition(() => {
+        setOverviewSymbol(selectedQuoteSymbol);
+      });
+    }, OVERVIEW_FOCUS_HANDOFF_DELAY_MS);
+
+    return () => {
+      if (pendingOverviewHandoffTimerRef.current !== null) {
+        window.clearTimeout(pendingOverviewHandoffTimerRef.current);
+        pendingOverviewHandoffTimerRef.current = null;
+      }
+    };
+  }, [overviewSymbol, selectedQuoteSymbol]);
+
   const handleSelectProfile = useCallback((profileId: InvestorProfileId) => {
     if (profileId === activeProfileId) {
       return;
@@ -293,7 +350,7 @@ export const App = ({ colorMode, onToggleColorMode }: AppProps) => {
         unrealizedPnL={unrealizedPnL}
         positionsCount={positionsCount}
         trackedSymbols={quotes.length}
-        selectedQuote={selectedQuote}
+        selectedQuote={overviewQuote}
       />
       <Grid container spacing={2} alignItems="flex-start">
         <Grid size={{ xs: 12, lg: 8 }}>

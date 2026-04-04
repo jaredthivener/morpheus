@@ -1,12 +1,13 @@
 import { Box } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
+import { memo } from 'react';
 
 interface SessionSparklineProps {
   values: number[];
   tone: 'positive' | 'negative' | 'neutral';
 }
 
-export const SessionSparkline = ({ values, tone }: SessionSparklineProps) => {
+export const SessionSparkline = memo(({ values, tone }: SessionSparklineProps) => {
   const theme = useTheme();
   const singleValue = values[0] ?? 0;
   const normalizedValues: number[] =
@@ -74,4 +75,6 @@ export const SessionSparkline = ({ values, tone }: SessionSparklineProps) => {
       </svg>
     </Box>
   );
-};
+});
+
+SessionSparkline.displayName = 'SessionSparkline';
