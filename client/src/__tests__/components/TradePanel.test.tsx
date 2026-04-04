@@ -3,8 +3,10 @@ import { ThemeProvider } from '@mui/material/styles';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { fetchOrderBookMock, submitLimitOrderMock } = vi.hoisted(() => ({
+const { buyMock, fetchOrderBookMock, sellMock, submitLimitOrderMock } = vi.hoisted(() => ({
+  buyMock: vi.fn(() => true),
   fetchOrderBookMock: vi.fn(),
+  sellMock: vi.fn(() => true),
   submitLimitOrderMock: vi.fn(),
 }));
 
@@ -15,14 +17,14 @@ vi.mock('../../api/client', () => ({
 
 vi.mock('../../store/portfolioStore', () => ({
   usePortfolioStore: (selector: (state: {
-    buy: ReturnType<typeof vi.fn>;
-    sell: ReturnType<typeof vi.fn>;
+    buy: typeof buyMock;
+    sell: typeof sellMock;
     cash: number;
     holdings: Record<string, { shares: number; avgCost: number }>;
   }) => unknown) =>
     selector({
-      buy: vi.fn(() => true),
-      sell: vi.fn(() => true),
+      buy: buyMock,
+      sell: sellMock,
       cash: 50_000,
       holdings: {
         VOO: {
@@ -72,7 +74,9 @@ const renderPanel = () => {
 
 describe('TradePanel', () => {
   beforeEach(() => {
+    buyMock.mockClear();
     fetchOrderBookMock.mockReset();
+    sellMock.mockClear();
     submitLimitOrderMock.mockReset();
 
     fetchOrderBookMock.mockResolvedValue({
@@ -153,5 +157,26 @@ describe('TradePanel', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  it('shows dismissible market-order feedback and clears it when ticket inputs change', async () => {
+    renderPanel();
+
+    fireEvent.click(screen.getByRole('button', { name: /buy 1 at market/i }));
+
+    expect(buyMock).toHaveBeenCalledWith('VOO', 1, 510.42);
+    const closeButton = await screen.findByRole('button', { name: /close/i });
+
+    fireEvent.click(closeButton);
+
+    expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /buy 1 at market/i }));
+
+    expect(await screen.findByRole('button', { name: /close/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: '5 sh' }));
+
+    expect(screen.queryByRole('button', { name: /close/i })).not.toBeInTheDocument();
   });
 });

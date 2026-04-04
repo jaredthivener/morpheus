@@ -169,12 +169,6 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
   }, [limitPrice, orderType, selectedPrice]);
 
   useEffect(() => {
-    if (flash !== null) {
-      setFlash(null);
-    }
-  }, [limitPrice, orderType, shares, side, symbol]);
-
-  useEffect(() => {
     return () => {
       if (pendingOrderTypeHandoffTimerRef.current !== null) {
         window.clearTimeout(pendingOrderTypeHandoffTimerRef.current);
@@ -227,10 +221,18 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
         : 'default';
   const showLimitPrice = orderType === 'limit';
 
+  const clearFlash = () => {
+    if (flash !== null) {
+      setFlash(null);
+    }
+  };
+
   const handleOrderTypeChange = (nextType: OrderType | null) => {
     if (!nextType) {
       return;
     }
+
+    clearFlash();
 
     if (pendingOrderTypeHandoffTimerRef.current !== null) {
       window.clearTimeout(pendingOrderTypeHandoffTimerRef.current);
@@ -306,7 +308,10 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
             <Chip
               key={preset}
               label={`${preset} sh`}
-              onClick={() => setShares(preset)}
+              onClick={() => {
+                clearFlash();
+                setShares(preset);
+              }}
               color={shares === preset ? 'primary' : 'default'}
               variant={shares === preset ? 'filled' : 'outlined'}
             />
@@ -372,6 +377,7 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
             value={side}
             onChange={(_, nextSide: TradeSide | null) => {
               if (nextSide) {
+                clearFlash();
                 setSide(nextSide);
               }
             }}
@@ -394,7 +400,10 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
             select
             label="Symbol"
             value={symbol}
-            onChange={(event) => onSelectSymbol(event.target.value)}
+            onChange={(event) => {
+              clearFlash();
+              onSelectSymbol(event.target.value);
+            }}
             size="small"
             sx={{ flex: 1 }}
           >
@@ -413,7 +422,10 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
             label="Shares"
             value={shares}
             inputProps={{ min: 1, step: 1 }}
-            onChange={(event) => setShares(Math.max(1, Number(event.target.value) || 1))}
+            onChange={(event) => {
+              clearFlash();
+              setShares(Math.max(1, Number(event.target.value) || 1));
+            }}
             size="small"
             sx={{ width: { sm: 132 } }}
           />
@@ -425,7 +437,10 @@ export const TradePanel = memo(({ quotes, selectedSymbol, onSelectSymbol }: Trad
             label="Limit Price"
             value={limitPrice || selectedPrice}
             inputProps={{ min: 0.01, step: 0.01 }}
-            onChange={(event) => setLimitPrice(Math.max(0.01, Number(event.target.value)))}
+            onChange={(event) => {
+              clearFlash();
+              setLimitPrice(Math.max(0.01, Number(event.target.value)));
+            }}
             size="small"
             fullWidth
             disabled={!showLimitPrice}
