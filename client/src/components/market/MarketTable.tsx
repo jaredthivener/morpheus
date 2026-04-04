@@ -10,7 +10,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material';
-import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent } from 'react';
+import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import { SessionSparkline } from '../common/SessionSparkline';
 import { useDeferredReveal } from '../../hooks/useDeferredReveal';
@@ -269,7 +269,7 @@ export const MarketTable = memo(({
     quietWindowMs: 1400,
   });
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (previousSelectedSymbolRef.current === selectedSymbol) {
       return;
     }

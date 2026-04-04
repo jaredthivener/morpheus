@@ -1,4 +1,6 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { flushSync } from 'react-dom';
+import { createRoot } from 'react-dom/client';
 import { describe, expect, it, vi } from 'vitest';
 import {
   MarketTable,
@@ -220,6 +222,65 @@ describe('MarketTable', () => {
 
       expect(onSelectSymbol).not.toHaveBeenCalledWith('AAPL');
     } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('clears a stale pending row before paint when the parent overrides selection', () => {
+    vi.useFakeTimers();
+
+    const onSelectSymbol = vi.fn();
+    const container = document.createElement('div');
+    const root = createRoot(container);
+
+    document.body.append(container);
+
+    try {
+      act(() => {
+        flushSync(() => {
+          root.render(
+            <MarketTable
+              quotes={quotes}
+              selectedSymbol="MSFT"
+              onSelectSymbol={onSelectSymbol}
+              priceHistory={{ AAPL: [200, 200.8, 201.15], MSFT: [420, 419.4, 418.5], NVDA: [905.5, 908.2, 912.4] }}
+              watchlistLabel="Balanced Builder"
+              watchlistDescription="A mix of broad exposure and durable single names."
+              symbolTypes={{ AAPL: 'stock', MSFT: 'stock', NVDA: 'stock' }}
+            />,
+          );
+        });
+      });
+
+      act(() => {
+        fireEvent.click(within(container).getByText('AAPL').closest('tr') as HTMLTableRowElement);
+      });
+
+      expect(within(container).getByTestId('market-symbol-shell-AAPL')).toHaveAttribute('data-selection-visual-state', 'pending');
+
+      act(() => {
+        flushSync(() => {
+          root.render(
+            <MarketTable
+              quotes={quotes}
+              selectedSymbol="NVDA"
+              onSelectSymbol={onSelectSymbol}
+              priceHistory={{ AAPL: [200, 200.8, 201.15], MSFT: [420, 419.4, 418.5], NVDA: [905.5, 908.2, 912.4] }}
+              watchlistLabel="Balanced Builder"
+              watchlistDescription="A mix of broad exposure and durable single names."
+              symbolTypes={{ AAPL: 'stock', MSFT: 'stock', NVDA: 'stock' }}
+            />,
+          );
+        });
+      });
+
+      expect(within(container).getByTestId('market-symbol-shell-AAPL')).toHaveAttribute('data-selection-visual-state', 'idle');
+      expect(within(container).getByTestId('market-symbol-shell-NVDA')).toHaveAttribute('data-selection-visual-state', 'synced');
+    } finally {
+      act(() => {
+        root.unmount();
+      });
+      container.remove();
       vi.useRealTimers();
     }
   });
