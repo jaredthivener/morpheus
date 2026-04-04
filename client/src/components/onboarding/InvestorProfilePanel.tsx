@@ -15,19 +15,19 @@ export const InvestorProfilePanel = memo(({
   selectedProfileId,
   onSelectProfile,
 }: InvestorProfilePanelProps) => {
-  const [displayedProfileId, setDisplayedProfileId] = useState(selectedProfileId);
+  const [highlightedProfileId, setHighlightedProfileId] = useState(selectedProfileId);
 
   useEffect(() => {
-    setDisplayedProfileId(selectedProfileId);
+    setHighlightedProfileId(selectedProfileId);
   }, [selectedProfileId]);
 
   const handleSelectProfile = (profileId: InvestorProfileId) => {
-    setDisplayedProfileId(profileId);
+    setHighlightedProfileId(profileId);
     onSelectProfile(profileId);
   };
 
   const selectedProfile =
-    profiles.find((profile) => profile.id === displayedProfileId) ?? profiles[0];
+    profiles.find((profile) => profile.id === selectedProfileId) ?? profiles[0];
 
   return (
     <DashboardPanel
@@ -39,13 +39,15 @@ export const InvestorProfilePanel = memo(({
       <Stack spacing={1.25}>
         <Grid container spacing={1.1}>
           {profiles.map((profile) => {
-            const isSelected = profile.id === displayedProfileId;
+            const isSelected = profile.id === highlightedProfileId;
 
             return (
               <Grid key={profile.id} size={{ xs: 12, sm: 4 }}>
                 <ButtonBase
+                  disableRipple
                   onClick={() => handleSelectProfile(profile.id)}
                   aria-label={`Switch to ${profile.label}`}
+                  aria-pressed={isSelected}
                   sx={{ display: 'block', width: '100%', borderRadius: '18px', textAlign: 'left' }}
                 >
                   <Box
@@ -65,16 +67,23 @@ export const InvestorProfilePanel = memo(({
                             background: `linear-gradient(180deg, ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.16 : 0.1)} 0%, ${alpha(theme.palette.background.paper, theme.palette.mode === 'dark' ? 0.26 : 0.68)} 100%)`,
                           }
                         : null),
-                      transition: 'transform 160ms ease, border-color 160ms ease, background-color 160ms ease',
+                      transition: 'border-color 160ms ease, background-color 160ms ease',
                       '&:hover': {
-                        transform: 'translateY(-1px)',
-                        borderColor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.58 : 0.28),
+                        borderColor: alpha(
+                          theme.palette.primary.main,
+                          theme.palette.mode === 'dark' ? 0.58 : 0.28,
+                        ),
                       },
                     })}
                   >
                     <Stack justifyContent="space-between" spacing={1} sx={{ height: '100%' }}>
                       <Stack spacing={0.5}>
-                        <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="flex-start">
+                        <Stack
+                          direction="row"
+                          justifyContent="space-between"
+                          spacing={1}
+                          alignItems="flex-start"
+                        >
                           <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.15 }}>
                             {profile.label}
                           </Typography>
@@ -84,10 +93,9 @@ export const InvestorProfilePanel = memo(({
                               width: 10,
                               height: 10,
                               borderRadius: '50%',
-                              backgroundColor: isSelected ? theme.palette.primary.main : alpha(theme.palette.text.secondary, 0.35),
-                              boxShadow: isSelected
-                                ? `0 0 0 6px ${alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.2 : 0.12)}`
-                                : 'none',
+                              backgroundColor: isSelected
+                                ? theme.palette.primary.main
+                                : alpha(theme.palette.text.secondary, 0.35),
                             })}
                           />
                         </Stack>
@@ -106,7 +114,12 @@ export const InvestorProfilePanel = memo(({
                         </Typography>
                       </Stack>
 
-                      <Stack direction="row" justifyContent="space-between" spacing={1} alignItems="center">
+                      <Stack
+                        direction="row"
+                        justifyContent="space-between"
+                        spacing={1}
+                        alignItems="center"
+                      >
                         <Typography
                           variant="caption"
                           sx={{
