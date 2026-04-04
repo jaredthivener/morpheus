@@ -4,6 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 import { InvestorProfilePanel } from '../../components/onboarding/InvestorProfilePanel';
 import { INVESTOR_PROFILES } from '../../utils/investorProfile';
 
+const expectProfileContained = (element: HTMLElement) => {
+  expect(getComputedStyle(element).contain).toBe('layout paint');
+};
+
 describe('InvestorProfilePanel', () => {
   it('renders the available starting lenses and lets the user switch profiles', () => {
     const onSelectProfile = vi.fn();
@@ -25,12 +29,24 @@ describe('InvestorProfilePanel', () => {
     expect(screen.getByText('Active lens')).toBeInTheDocument();
     expect(screen.queryByText('QQQ ETF')).not.toBeInTheDocument();
 
+    expectProfileContained(screen.getByTestId('investor-profile-shell-etf-starter'));
+    expect(screen.getByTestId('investor-profile-shell-etf-starter')).toHaveAttribute(
+      'data-selection-visual-state',
+      'active',
+    );
+    expectProfileContained(screen.getByTestId('investor-profile-shell-balanced-builder'));
+    expectProfileContained(screen.getByTestId('investor-profile-shell-growth-explorer'));
+
     const balancedBuilderButton = screen.getByRole('button', { name: /switch to balanced builder/i });
 
     fireEvent.click(balancedBuilderButton);
 
     expect(onSelectProfile).toHaveBeenCalledWith('balanced-builder');
     expect(balancedBuilderButton).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByTestId('investor-profile-shell-balanced-builder')).toHaveAttribute(
+      'data-selection-visual-state',
+      'active',
+    );
     expect(screen.queryByText('QQQ ETF')).not.toBeInTheDocument();
 
     rerender(

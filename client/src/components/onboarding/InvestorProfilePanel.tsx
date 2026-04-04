@@ -4,6 +4,8 @@ import { memo, useEffect, useState } from 'react';
 import { DashboardPanel, insetSurfaceSx } from '../common/DashboardPanel';
 import type { InvestorProfile, InvestorProfileId } from '../../utils/investorProfile';
 
+const INVESTOR_PROFILE_SHELL_TEST_ID_PREFIX = 'investor-profile-shell';
+
 interface InvestorProfilePanelProps {
   profiles: InvestorProfile[];
   selectedProfileId: InvestorProfileId;
@@ -51,11 +53,14 @@ export const InvestorProfilePanel = memo(({
                   sx={{ display: 'block', width: '100%', borderRadius: '18px', textAlign: 'left' }}
                 >
                   <Box
+                    data-testid={`${INVESTOR_PROFILE_SHELL_TEST_ID_PREFIX}-${profile.id}`}
+                    data-selection-visual-state={isSelected ? 'active' : 'idle'}
                     sx={(theme) => ({
                       ...insetSurfaceSx(theme),
                       minHeight: 122,
                       px: 1.25,
                       py: 1.15,
+                      contain: 'layout paint',
                       borderRadius: '18px',
                       border: `1px solid ${
                         isSelected
@@ -63,6 +68,7 @@ export const InvestorProfilePanel = memo(({
                           : alpha(theme.palette.divider, 0.92)
                       }`,
                       transition: 'none',
+                      // Keep the card acknowledgment self-contained so profile clicks do not repaint the whole panel.
                       '&:hover': {
                         borderColor: alpha(
                           theme.palette.primary.main,

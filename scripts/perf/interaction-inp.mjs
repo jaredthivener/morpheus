@@ -43,17 +43,37 @@ const waitForDashboard = async (page) => {
 };
 
 const exerciseInteractions = async (page) => {
-  await page.getByRole('button', { name: /Switch to (dark|light) mode/ }).click();
+  const themeToggle = page.getByRole('button', { name: /Switch to (dark|light) mode/ });
+  const previousThemeToggleLabel = await themeToggle.getAttribute('aria-label');
+
+  await themeToggle.click();
+  await page.waitForFunction(
+    (previousLabel) => {
+      const nextThemeToggle = globalThis.document.querySelector('button[aria-label^="Switch to "]');
+
+      return nextThemeToggle?.getAttribute('aria-label') !== previousLabel;
+    },
+    previousThemeToggleLabel,
+    { timeout: 5_000 },
+  );
 
   await page.getByRole('button', { name: 'Switch to Growth Explorer' }).click();
   await page.locator('tbody tr').filter({ hasText: 'SOXX' }).first().waitFor();
 
-  await page.locator('tbody tr').filter({ hasText: 'NVDA' }).first().click();
   const selectedMarketRow = page.locator('tbody tr[aria-selected="true"]').filter({ hasText: 'NVDA' }).first();
-  const selectedMarketSymbolShell = selectedMarketRow.getByTestId('market-symbol-shell-NVDA');
+  const selectedMarketSymbolShell = page.getByTestId('market-symbol-shell-NVDA');
 
+  await selectedMarketSymbolShell.click();
   await selectedMarketRow.waitFor();
   await selectedMarketSymbolShell.waitFor({ state: 'visible' });
+  await page.waitForFunction(
+    () => {
+      const symbolShell = globalThis.document.querySelector('[data-testid="market-symbol-shell-NVDA"]');
+
+      return symbolShell?.getAttribute('data-selection-visual-state') === 'pending';
+    },
+    { timeout: 5_000 },
+  );
 
   const limitPriceSlot = page.getByTestId('trade-limit-price-slot');
   const limitPriceInput = limitPriceSlot.locator('input');
